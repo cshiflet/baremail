@@ -7,6 +7,7 @@ import { getPref, setPref, getOutboxCount } from './cache.js';
 import { Header, WIDTH_PRESETS, DEFAULT_WIDTH_ID } from './components/header.js';
 import { Nav } from './components/nav.js';
 import { Footer } from './components/footer.js';
+import { Sidebar } from './components/sidebar.js';
 import { InboxZeroBear } from './components/bear.js';
 import { LoginView } from './views/login.js';
 import { InboxView } from './views/inbox.js';
@@ -39,6 +40,7 @@ function App() {
   const [labels, setLabels] = useState<GmailLabel[]>([]);
   const [showCategoryTabs, setShowCategoryTabs] = useState<boolean>(false);
   const [useGmailLabelColors, setUseGmailLabelColors] = useState<boolean>(false);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -442,6 +444,23 @@ function App() {
         </div>
       `}
 
+      <div class="layout">
+        ${labels.some(l => l.type === 'user') && html`
+          <button
+            class="sidebar-toggle"
+            onClick=${() => setSidebarOpen(o => !o)}
+            title="toggle labels"
+          >☰</button>
+          <${Sidebar}
+            labels=${labels}
+            activeLabel=${activeLabel}
+            useGmailLabelColors=${useGmailLabelColors}
+            onLabelClick=${handleTabClick}
+            isOpen=${sidebarOpen}
+            onClose=${() => setSidebarOpen(false)}
+          />
+          <div class="sidebar-divider" aria-hidden="true">${'|\n'.repeat(200).slice(0, -1)}</div>
+        `}
       <div class="app-container ${mounted ? 'mounted' : ''}">
         <div class="sticky-top">
           <${Header}
@@ -522,6 +541,7 @@ function App() {
         `}
 
         <${Footer} view=${view} hasActiveSearch=${!!(localSearchQuery || apiSearchQuery)} />
+      </div>
       </div>
     </div>
   `;
