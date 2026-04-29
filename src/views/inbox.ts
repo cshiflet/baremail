@@ -98,7 +98,16 @@ export function InboxView({
         drafts: ['DRAFT'],
       };
 
-      const labelIds = labelMap[activeLabel] || ['INBOX'];
+      let labelIds: string[];
+      if (labelMap[activeLabel]) {
+        labelIds = labelMap[activeLabel];
+      } else if (activeLabel.startsWith('CATEGORY_')) {
+        // Category tabs are inbox-scoped, matching Gmail web behavior.
+        labelIds = [activeLabel, 'INBOX'];
+      } else {
+        // User labels: show all messages with that label, regardless of inbox status.
+        labelIds = [activeLabel];
+      }
       const maxResults = isApiSearch ? API_SEARCH_MAX_RESULTS : 25;
       const result = await listMessages(
         apiSearchQuery || undefined,

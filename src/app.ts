@@ -474,6 +474,8 @@ function App() {
             onSearchSubmit=${handleSearchSubmit}
             onSearchClear=${handleSearchClear}
             onCompose=${startCompose}
+            labels=${labels}
+            showCategoryTabs=${showCategoryTabs}
           />
         </div>
 

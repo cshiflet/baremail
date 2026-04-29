@@ -1,8 +1,24 @@
 import { h } from 'preact';
 import htm from 'htm';
-import type { View } from '../types.js';
+import type { View, GmailLabel } from '../types.js';
 
 const html = htm.bind(h);
+
+const CATEGORY_ORDER = [
+  'CATEGORY_PERSONAL',
+  'CATEGORY_SOCIAL',
+  'CATEGORY_PROMOTIONS',
+  'CATEGORY_UPDATES',
+  'CATEGORY_FORUMS',
+];
+
+const CATEGORY_DISPLAY: Record<string, { name: string; icon: string }> = {
+  CATEGORY_PERSONAL:   { name: 'personal',   icon: '@' },
+  CATEGORY_SOCIAL:     { name: 'social',     icon: '◉' },
+  CATEGORY_PROMOTIONS: { name: 'promotions', icon: '%' },
+  CATEGORY_UPDATES:    { name: 'updates',    icon: 'i' },
+  CATEGORY_FORUMS:     { name: 'forums',     icon: '#' },
+};
 
 interface NavProps {
   activeLabel: string;
@@ -15,21 +31,34 @@ interface NavProps {
   onSearchSubmit: () => void;
   onSearchClear: () => void;
   onCompose: () => void;
+  labels: GmailLabel[];
+  showCategoryTabs: boolean;
 }
 
-export function Nav({ activeLabel, view, tabCounts, searchQuery, apiSearchQuery, onTabClick, onSearchInput, onSearchSubmit, onSearchClear, onCompose }: NavProps) {
+export function Nav({ activeLabel, view, tabCounts, searchQuery, apiSearchQuery, onTabClick, onSearchInput, onSearchSubmit, onSearchClear, onCompose, labels, showCategoryTabs }: NavProps) {
   const countLabel = (id: string) => {
     const count = tabCounts[id];
     return count ? ` (${count})` : '';
   };
 
-  const tabs = [
-    { id: 'inbox', label: `inbox${countLabel('inbox')}`, icon: '>' },
+  const tabs: Array<{ id: string; label: string; icon: string }> = [
+    { id: 'inbox',   label: `inbox${countLabel('inbox')}`,     icon: '>' },
     { id: 'starred', label: `starred${countLabel('starred')}`, icon: '★' },
-    { id: 'sent', label: `sent${countLabel('sent')}`, icon: '↑' },
-    { id: 'drafts', label: `drafts${countLabel('drafts')}`, icon: '◫' },
-    { id: 'compose', label: 'compose', icon: '+' },
+    { id: 'sent',    label: `sent${countLabel('sent')}`,       icon: '↑' },
+    { id: 'drafts',  label: `drafts${countLabel('drafts')}`,   icon: '◫' },
   ];
+
+  if (showCategoryTabs) {
+    const categoryLabels = labels
+      .filter(l => l.type === 'system' && CATEGORY_DISPLAY[l.id])
+      .sort((a, b) => CATEGORY_ORDER.indexOf(a.id) - CATEGORY_ORDER.indexOf(b.id));
+    for (const cat of categoryLabels) {
+      const display = CATEGORY_DISPLAY[cat.id];
+      tabs.push({ id: cat.id, label: `${display.name}${countLabel(cat.id)}`, icon: display.icon });
+    }
+  }
+
+  tabs.push({ id: 'compose', label: 'compose', icon: '+' });
 
   const handleSearchKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
