@@ -440,6 +440,15 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   word-break: break-word;
 }
 
+.reader-body a {
+  color: var(--amber);
+  text-decoration: underline;
+}
+
+.reader-body a:hover {
+  color: var(--amber-bright);
+}
+
 .reader-reply-bar {
   border-top: 1px solid var(--border);
   padding: 12px 4px;
