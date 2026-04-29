@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import htm from 'htm';
 import DOMPurify from 'dompurify';
-import { Loading, formatFullDate, formatBytes } from '../components/common.js';
+import { Loading, formatFullDate, formatBytes, LabelChips } from '../components/common.js';
 import {
   getMessage,
   archiveMessage,
@@ -14,7 +14,7 @@ import {
   getAttachment,
 } from '../gmail.js';
 import { cacheMessage, getCachedMessage } from '../cache.js';
-import type { GmailMessage, ComposeData } from '../types.js';
+import type { GmailMessage, ComposeData, GmailLabel } from '../types.js';
 
 const html = htm.bind(h);
 
@@ -105,9 +105,11 @@ interface ReaderProps {
   onForward: (data: ComposeData) => void;
   onEmailUpdated: (email: GmailMessage) => void;
   onArchived: (id: string) => void;
+  labels: GmailLabel[];
+  useGmailLabelColors: boolean;
 }
 
-export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, onArchived }: ReaderProps) {
+export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, onArchived, labels, useGmailLabelColors }: ReaderProps) {
   const [fullEmail, setFullEmail] = useState<GmailMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [showHtml, setShowHtml] = useState(false);
@@ -303,6 +305,12 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
           `}
           <span class="reader-meta-label">date</span>
           <span class="reader-meta-value">${formatFullDate(displayEmail.internalDate)}</span>
+          ${displayEmail.labelIds && labels.some(l => l.type === 'user' && displayEmail.labelIds.includes(l.id)) && html`
+            <span class="reader-meta-label">labels</span>
+            <span class="reader-meta-value">
+              <${LabelChips} messageLabelIds=${displayEmail.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
+            </span>
+          `}
         </div>
       </div>
 

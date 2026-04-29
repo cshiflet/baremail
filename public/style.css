@@ -204,6 +204,23 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   display: none;
 }
 
+/* ── Label chips ── */
+.label-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.label-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--amber-dim);
+  color: var(--amber-dim);
+  font-size: 10px;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+
 @media (max-width: 700px) {
   .sidebar-toggle {
     display: inline-flex;

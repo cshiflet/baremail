@@ -1,9 +1,32 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import htm from 'htm';
-import type { ConnectionStatus } from '../types.js';
+import type { ConnectionStatus, GmailLabel } from '../types.js';
 
 const html = htm.bind(h);
+
+export function LabelChip({ label, useColor }: { label: GmailLabel; useColor: boolean }) {
+  const style = useColor && label.color
+    ? `color: ${label.color.textColor || 'inherit'}; background: ${label.color.backgroundColor || 'transparent'}; border-color: transparent;`
+    : '';
+  return html`<span class="label-chip" style=${style} title=${label.name}>${label.name}</span>`;
+}
+
+export function LabelChips({ messageLabelIds, allLabels, useColor }: {
+  messageLabelIds: string[] | undefined;
+  allLabels: GmailLabel[];
+  useColor: boolean;
+}) {
+  if (!messageLabelIds || messageLabelIds.length === 0) return null;
+  const userLabelIds = new Set(allLabels.filter(l => l.type === 'user').map(l => l.id));
+  const chips = messageLabelIds
+    .filter(id => userLabelIds.has(id))
+    .map(id => allLabels.find(l => l.id === id))
+    .filter((l): l is GmailLabel => !!l)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (chips.length === 0) return null;
+  return html`<span class="label-chips">${chips.map(label => html`<${LabelChip} key=${label.id} label=${label} useColor=${useColor} />`)}</span>`;
+}
 
 export function StatusDot({ status }: { status: ConnectionStatus }) {
   return html`<span class="status-dot ${status}" />`;

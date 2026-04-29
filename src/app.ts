@@ -528,6 +528,8 @@ function App() {
             onForward=${handleForward}
             onEmailUpdated=${handleEmailUpdated}
             onArchived=${handleArchived}
+            labels=${labels}
+            useGmailLabelColors=${useGmailLabelColors}
           />
         `}
 
