@@ -29,6 +29,7 @@ export function Footer({ view, hasActiveSearch }: FooterProps) {
           <${KeyHint} keys="r" label="reply" />
           <${KeyHint} keys="e" label="archive" />
           <${KeyHint} keys="s" label="star" />
+          <${KeyHint} keys="l" label="toggle url" />
           <${KeyHint} keys="esc" label="back" />
         `}
         ${view === 'compose' && html`

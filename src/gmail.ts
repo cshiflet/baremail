@@ -381,8 +381,18 @@ function htmlToPlainText(htmlStr: string): string {
 
       if (tag === 'a' && el.getAttribute('href')) {
         const href = el.getAttribute('href')!;
-        const linkText = el.textContent?.trim() || '';
-        if (linkText && linkText !== href) {
+        let linkText = el.textContent?.trim() || '';
+        if (!linkText) {
+          linkText = el.getAttribute('title')?.trim() || '';
+        }
+        if (!linkText) {
+          for (const img of Array.from(el.querySelectorAll('img'))) {
+            const alt = img.getAttribute('alt')?.trim() || '';
+            if (alt) { linkText = alt; break; }
+          }
+        }
+        if (!linkText) linkText = 'link';
+        if (linkText !== href) {
           parts.push(`${linkText} [${href}]`);
         } else {
           parts.push(href);
