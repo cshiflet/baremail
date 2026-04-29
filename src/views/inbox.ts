@@ -71,7 +71,6 @@ export function InboxView({
   selectedIndex,
   inboxZeroBear,
 }: InboxProps) {
-  const [hoverRow, setHoverRow] = useState<string | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,8 +274,6 @@ export function InboxView({
         <div
           key=${email.id}
           class="inbox-row fade-in"
-          onMouseEnter=${() => setHoverRow(email.id)}
-          onMouseLeave=${() => setHoverRow(null)}
           onClick=${() => onOpenEmail(email)}
           style=${{
             animationDelay: `${i * 40}ms`,
