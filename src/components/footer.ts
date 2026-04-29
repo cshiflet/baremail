@@ -21,6 +21,7 @@ export function Footer({ view, hasActiveSearch }: FooterProps) {
           <${KeyHint} keys="o" label="open" />
           <${KeyHint} keys="e" label="archive" />
           <${KeyHint} keys="s" label="star" />
+          <${KeyHint} keys="u" label="read/unread" />
           <${KeyHint} keys="c" label="compose" />
           <${KeyHint} keys="/" label="search" />
           ${hasActiveSearch && html`<${KeyHint} keys="esc" label="clear search" />`}
@@ -29,6 +30,7 @@ export function Footer({ view, hasActiveSearch }: FooterProps) {
           <${KeyHint} keys="r" label="reply" />
           <${KeyHint} keys="e" label="archive" />
           <${KeyHint} keys="s" label="star" />
+          <${KeyHint} keys="u" label="read/unread" />
           <${KeyHint} keys="l" label="toggle url" />
           <${KeyHint} keys="esc" label="back" />
         `}

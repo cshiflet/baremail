@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import htm from 'htm';
 import { formatDate, Loading } from '../components/common.js';
-import { listMessages, batchGetMetadata, archiveMessage } from '../gmail.js';
+import { listMessages, batchGetMetadata, archiveMessage, markAsRead, markAsUnread } from '../gmail.js';
 import { cacheMessages, getAllCachedMessages } from '../cache.js';
 import type { GmailMessage } from '../types.js';
 
@@ -45,6 +45,7 @@ interface InboxProps {
   loading: boolean;
   refreshTrigger: number;
   onEmailsLoaded: (cacheKey: string, emails: GmailMessage[], nextPageToken: string | null, append?: boolean) => void;
+  onEmailUpdated: (email: GmailMessage) => void;
   onOpenEmail: (email: GmailMessage) => void;
   onSetLoading: (loading: boolean) => void;
   onSearchSubmit: () => void;
@@ -64,6 +65,7 @@ export function InboxView({
   loading,
   refreshTrigger,
   onEmailsLoaded,
+  onEmailUpdated,
   onOpenEmail,
   onSetLoading,
   onSearchSubmit,
@@ -169,6 +171,18 @@ export function InboxView({
       );
     } catch (err) {
       console.error('Failed to archive:', err);
+    }
+  };
+
+  const handleToggleUnread = async (e: Event, email: GmailMessage) => {
+    e.stopPropagation();
+    try {
+      const wantUnread = !email.isUnread;
+      if (wantUnread) await markAsUnread(email.id);
+      else await markAsRead(email.id);
+      onEmailUpdated({ ...email, isUnread: wantUnread });
+    } catch (err) {
+      console.error('Failed to toggle read:', err);
     }
   };
 
@@ -307,6 +321,12 @@ export function InboxView({
           </span>
 
           <span class="inbox-actions">
+            <button
+              class="btn btn-secondary btn-sm"
+              onClick=${(e: Event) => handleToggleUnread(e, email)}
+            >
+              ${email.isUnread ? 'mark read' : 'mark unread'}
+            </button>
             <button
               class="btn btn-secondary btn-sm"
               onClick=${(e: Event) => handleArchive(e, email)}

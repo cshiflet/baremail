@@ -10,6 +10,7 @@ import {
   unstarMessage,
   trashMessage,
   markAsRead,
+  markAsUnread,
   getAttachment,
 } from '../gmail.js';
 import { cacheMessage, getCachedMessage } from '../cache.js';
@@ -201,6 +202,18 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
     }
   };
 
+  const handleToggleUnread = async () => {
+    try {
+      const wantUnread = !email.isUnread;
+      if (wantUnread) await markAsUnread(email.id);
+      else await markAsRead(email.id);
+      if (fullEmail) setFullEmail({ ...fullEmail, isUnread: wantUnread });
+      onEmailUpdated({ ...email, isUnread: wantUnread });
+    } catch (err) {
+      console.error('Toggle read failed:', err);
+    }
+  };
+
   const handleReply = () => {
     if (!fullEmail) return;
     onReply({
@@ -263,6 +276,9 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
         <button class="btn btn-ghost" onClick=${onBack}>← back</button>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-secondary btn-sm" onClick=${handleArchive}>archive</button>
+          <button class="btn btn-secondary btn-sm" onClick=${handleToggleUnread}>
+            ${email.isUnread ? 'mark read' : 'mark unread'}
+          </button>
           <button class="btn btn-secondary btn-sm" onClick=${handleStar}>
             ${email.isStarred ? '★ unstar' : '☆ star'}
           </button>

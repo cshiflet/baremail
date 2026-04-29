@@ -2,7 +2,7 @@ import { h, render } from 'preact';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import htm from 'htm';
 import { initAuth, isAuthenticated, handleOAuthCallback, logout, getUserEmail } from './auth.js';
-import { getTotalBytes, archiveMessage, starMessage, unstarMessage } from './gmail.js';
+import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread } from './gmail.js';
 import { getPref, setPref, getOutboxCount } from './cache.js';
 import { Header } from './components/header.js';
 import { Nav } from './components/nav.js';
@@ -296,6 +296,16 @@ function App() {
               handleEmailUpdated({ ...email, isStarred: !email.isStarred });
             });
           }
+        } else if (e.key === 'u') {
+          e.preventDefault();
+          const email = emails[selectedIndexRef.current];
+          if (email) {
+            const wantUnread = !email.isUnread;
+            const fn = wantUnread ? markAsUnread : markAsRead;
+            fn(email.id).then(() => {
+              handleEmailUpdated({ ...email, isUnread: wantUnread });
+            });
+          }
         } else if (e.key === 'c') {
           e.preventDefault();
           startCompose();
@@ -319,6 +329,15 @@ function App() {
             const toggle = selectedEmail.isStarred ? unstarMessage : starMessage;
             toggle(selectedEmail.id).then(() => {
               handleEmailUpdated({ ...selectedEmail, isStarred: !selectedEmail.isStarred });
+            });
+          }
+        } else if (e.key === 'u') {
+          e.preventDefault();
+          if (selectedEmail) {
+            const wantUnread = !selectedEmail.isUnread;
+            const fn = wantUnread ? markAsUnread : markAsRead;
+            fn(selectedEmail.id).then(() => {
+              handleEmailUpdated({ ...selectedEmail, isUnread: wantUnread });
             });
           }
         }
@@ -412,6 +431,7 @@ function App() {
             loading=${loading}
             refreshTrigger=${refreshTrigger}
             onEmailsLoaded=${handleEmailsLoaded}
+            onEmailUpdated=${handleEmailUpdated}
             onOpenEmail=${openEmail}
             onSetLoading=${setLoading}
             onSearchSubmit=${handleSearchSubmit}
