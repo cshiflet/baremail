@@ -37,6 +37,8 @@ function App() {
   const [outboxCount, setOutboxCount] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [labels, setLabels] = useState<GmailLabel[]>([]);
+  const [showCategoryTabs, setShowCategoryTabs] = useState<boolean>(false);
+  const [useGmailLabelColors, setUseGmailLabelColors] = useState<boolean>(false);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -79,6 +81,9 @@ function App() {
             .then(fresh => { setLabels(fresh); setPref('labels', fresh); })
             .catch(err => console.error('Failed to refresh labels:', err));
         }
+
+        setShowCategoryTabs(await getPref<boolean>('showCategoryTabs', false));
+        setUseGmailLabelColors(await getPref<boolean>('useGmailLabelColors', false));
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -118,6 +123,19 @@ function App() {
     document.documentElement.setAttribute('data-theme', next);
     await setPref('theme', next);
   }, [theme]);
+
+  // ── Label settings ──
+  const toggleShowCategoryTabs = useCallback(async () => {
+    const next = !showCategoryTabs;
+    setShowCategoryTabs(next);
+    await setPref('showCategoryTabs', next);
+  }, [showCategoryTabs]);
+
+  const toggleUseGmailLabelColors = useCallback(async () => {
+    const next = !useGmailLabelColors;
+    setUseGmailLabelColors(next);
+    await setPref('useGmailLabelColors', next);
+  }, [useGmailLabelColors]);
 
   // ── Container width ──
   const setContainerWidth = useCallback(async (id: string) => {
@@ -439,6 +457,10 @@ function App() {
             containerWidth=${containerWidth}
             onSetContainerWidth=${setContainerWidth}
             onCycleContainerWidth=${cycleContainerWidth}
+            showCategoryTabs=${showCategoryTabs}
+            onToggleShowCategoryTabs=${toggleShowCategoryTabs}
+            useGmailLabelColors=${useGmailLabelColors}
+            onToggleUseGmailLabelColors=${toggleUseGmailLabelColors}
           />
 
           <${Nav}

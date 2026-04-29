@@ -34,9 +34,13 @@ interface HeaderProps {
   containerWidth: string;
   onSetContainerWidth: (id: string) => void;
   onCycleContainerWidth: () => void;
+  showCategoryTabs: boolean;
+  onToggleShowCategoryTabs: () => void;
+  useGmailLabelColors: boolean;
+  onToggleUseGmailLabelColors: () => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -96,6 +100,13 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
               ${userEmail && html`
                 <div class="account-popover-email">${userEmail}</div>
               `}
+              <button class="account-popover-toggle" onClick=${onToggleShowCategoryTabs}>
+                <span class="checkbox-glyph">${showCategoryTabs ? '[x]' : '[ ]'}</span> show category tabs
+              </button>
+              <button class="account-popover-toggle" onClick=${onToggleUseGmailLabelColors}>
+                <span class="checkbox-glyph">${useGmailLabelColors ? '[x]' : '[ ]'}</span> use gmail label colors
+              </button>
+              <div class="account-popover-divider" />
               <button class="account-popover-logout" onClick=${onLogout}>
                 ⏻ sign out
               </button>

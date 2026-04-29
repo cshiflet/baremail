@@ -1168,6 +1168,40 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   color: var(--red);
 }
 
+.account-popover-toggle {
+  background: transparent;
+  border: none;
+  color: var(--dim-text);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0;
+  width: 100%;
+  text-align: left;
+  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-popover-toggle:hover {
+  color: var(--amber);
+}
+
+.account-popover-toggle .checkbox-glyph {
+  color: var(--border);
+  font-family: var(--font);
+}
+
+.account-popover-toggle:hover .checkbox-glyph {
+  color: var(--amber-dim);
+}
+
+.account-popover-divider {
+  border-top: 1px solid var(--border);
+  margin: 6px 0;
+}
+
 /* ── Width control ── */
 .width-control {
   position: relative;
