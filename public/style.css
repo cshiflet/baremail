@@ -93,7 +93,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 
 /* ── Layout ── */
 .app-container {
-  max-width: 800px;
+  max-width: var(--container-max-width, 1000px);
   margin: 0 auto;
   padding: 0 16px 50px;
   opacity: 0;
@@ -848,7 +848,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   flex-wrap: wrap;
   gap: 8px;
   z-index: 10;
-  max-width: 800px;
+  max-width: var(--container-max-width, 1000px);
   margin: 0 auto;
 }
 
@@ -1166,6 +1166,79 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 
 .account-popover-logout:hover {
   color: var(--red);
+}
+
+/* ── Width control ── */
+.width-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+
+.width-cycle-btn,
+.width-dropdown-btn {
+  background: transparent;
+  border: none;
+  color: var(--dim-text);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s;
+}
+
+.width-cycle-btn:hover,
+.width-dropdown-btn:hover {
+  color: var(--amber-dim);
+}
+
+.width-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  padding: 6px 0;
+  z-index: 20;
+  min-width: 160px;
+  animation: fadeSlideIn 0.15s ease both;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme="light"] .width-popover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.width-popover-option {
+  background: transparent;
+  border: none;
+  color: var(--dim-text);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 6px 14px;
+  text-align: left;
+  transition: color 0.15s, background 0.15s;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.width-popover-hint {
+  color: var(--border);
+  font-size: 10px;
+}
+
+.width-popover-option:hover {
+  color: var(--amber-bright);
+  background: var(--bg-highlight);
+}
+
+.width-popover-option.active {
+  color: var(--amber);
 }
 
 /* ── Modal ── */

@@ -4,7 +4,7 @@ import htm from 'htm';
 import { initAuth, isAuthenticated, handleOAuthCallback, logout, getUserEmail } from './auth.js';
 import { getTotalBytes, archiveMessage, starMessage, unstarMessage } from './gmail.js';
 import { getPref, setPref, getOutboxCount } from './cache.js';
-import { Header } from './components/header.js';
+import { Header, WIDTH_PRESETS, DEFAULT_WIDTH_ID } from './components/header.js';
 import { Nav } from './components/nav.js';
 import { Footer } from './components/footer.js';
 import { InboxZeroBear } from './components/bear.js';
@@ -31,6 +31,7 @@ function App() {
   const [apiSearchQuery, setApiSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [containerWidth, setContainerWidthState] = useState<string>(DEFAULT_WIDTH_ID);
   const [mounted, setMounted] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('online');
   const [outboxCount, setOutboxCount] = useState(0);
@@ -55,6 +56,12 @@ function App() {
         const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
         setTheme(initialTheme);
         document.documentElement.setAttribute('data-theme', initialTheme);
+
+        const savedWidth = await getPref<string>('containerWidth', DEFAULT_WIDTH_ID);
+        const initialWidth = WIDTH_PRESETS.find(p => p.id === savedWidth) ? savedWidth : DEFAULT_WIDTH_ID;
+        setContainerWidthState(initialWidth);
+        const initialPreset = WIDTH_PRESETS.find(p => p.id === initialWidth)!;
+        document.documentElement.style.setProperty('--container-max-width', initialPreset.value);
 
         const callbackHandled = await handleOAuthCallback();
         if (callbackHandled || await initAuth()) {
@@ -102,6 +109,23 @@ function App() {
     document.documentElement.setAttribute('data-theme', next);
     await setPref('theme', next);
   }, [theme]);
+
+  // ── Container width ──
+  const setContainerWidth = useCallback(async (id: string) => {
+    const preset = WIDTH_PRESETS.find(p => p.id === id);
+    if (!preset) return;
+    setContainerWidthState(id);
+    document.documentElement.style.setProperty('--container-max-width', preset.value);
+    await setPref('containerWidth', id);
+  }, []);
+
+  const cycleContainerWidth = useCallback(async () => {
+    const idx = WIDTH_PRESETS.findIndex(p => p.id === containerWidth);
+    const next = WIDTH_PRESETS[(idx + 1) % WIDTH_PRESETS.length];
+    setContainerWidthState(next.id);
+    document.documentElement.style.setProperty('--container-max-width', next.value);
+    await setPref('containerWidth', next.id);
+  }, [containerWidth]);
 
   // ── Navigation helpers ──
   const openEmail = useCallback((email: GmailMessage) => {
@@ -384,6 +408,9 @@ function App() {
             userEmail=${getUserEmail()}
             onLogout=${handleLogout}
             onRefresh=${handleRefresh}
+            containerWidth=${containerWidth}
+            onSetContainerWidth=${setContainerWidth}
+            onCycleContainerWidth=${cycleContainerWidth}
           />
 
           <${Nav}
