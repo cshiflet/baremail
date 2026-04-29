@@ -28,7 +28,7 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  const [attachments, setAttachments] = useState<Array<{ file: File; data: string }>>([]);
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -37,16 +37,17 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
   const handleFileSelect = (e: Event) => {
     const files = (e.target as HTMLInputElement).files;
     if (!files) return;
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        setAttachments(prev => [...prev, { file, data: base64 }]);
-      };
-      reader.readAsDataURL(file);
-    });
+    setAttachments(prev => [...prev, ...Array.from(files)]);
     if (fileRef.current) fileRef.current.value = '';
   };
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
@@ -60,7 +61,7 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
     }
   }, []);
 
-  const attachSize = attachments.reduce((sum, a) => sum + a.file.size, 0);
+  const attachSize = attachments.reduce((sum, f) => sum + f.size, 0);
   const estimatedSize = new TextEncoder().encode(to + subject + body + cc + bcc).length + 300 + Math.ceil(attachSize * 1.37);
 
   const handleSend = async () => {
@@ -101,11 +102,13 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
     }
 
     try {
-      const sendAttachments: SendAttachment[] = attachments.map(a => ({
-        name: a.file.name,
-        mimeType: a.file.type || 'application/octet-stream',
-        data: a.data,
-      }));
+      const sendAttachments: SendAttachment[] = await Promise.all(
+        attachments.map(async (file) => ({
+          name: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          data: await fileToBase64(file),
+        }))
+      );
 
       await sendMessage(to, subject, finalBody, {
         cc: cc || undefined,
@@ -234,9 +237,9 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
         </div>
         ${attachments.length > 0 && html`
           <div style="padding: 4px 0;">
-            ${attachments.map((a, i) => html`
+            ${attachments.map((f, i) => html`
               <div key=${i} style="display: flex; align-items: center; gap: 8px; padding: 4px 0; color: var(--dim-text); font-size: 11px;">
-                <span>📎 ${a.file.name} (${formatBytes(a.file.size)})</span>
+                <span>📎 ${f.name} (${formatBytes(f.size)})</span>
                 <button
                   class="btn btn-ghost"
                   style="font-size: 10px; padding: 1px 6px; color: var(--red);"

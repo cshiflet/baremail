@@ -5,6 +5,8 @@ const CACHE_NAME = 'baremail-v4';
 const API_CACHE = 'baremail-api-v1';
 const MSG_CACHE = 'baremail-messages-v1';
 
+const API_CACHE_MAX_ENTRIES = 50;
+
 const APP_SHELL_FILES = [
   '/',
   '/index.html',
@@ -113,7 +115,7 @@ async function networkFirstWithCache(request: Request, cacheName: string): Promi
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+      cache.put(request, response.clone()).then(() => trimCache(cacheName, API_CACHE_MAX_ENTRIES));
     }
     return response;
   } catch {
@@ -123,6 +125,16 @@ async function networkFirstWithCache(request: Request, cacheName: string): Promi
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+}
+
+async function trimCache(cacheName: string, maxEntries: number): Promise<void> {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  const overflow = keys.length - maxEntries;
+  if (overflow <= 0) return;
+  for (let i = 0; i < overflow; i++) {
+    await cache.delete(keys[i]);
   }
 }
 

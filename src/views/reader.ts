@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useMemo } from 'preact/hooks';
 import htm from 'htm';
 import DOMPurify from 'dompurify';
 import { TypewriterText, Loading, formatFullDate, formatBytes } from '../components/common.js';
@@ -150,6 +150,15 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
   const displayEmail = fullEmail || email;
   const body = displayEmail.body;
 
+  const sanitizedHtml = useMemo(() => {
+    if (!displayEmail.bodyHtml) return '';
+    return DOMPurify.sanitize(displayEmail.bodyHtml, {
+      FORBID_TAGS: ['style', 'form'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+      ALLOW_DATA_ATTR: false,
+    });
+  }, [displayEmail.bodyHtml]);
+
   if (loading) {
     return html`<${Loading} message="loading message..." />`;
   }
@@ -192,11 +201,7 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
       ${showHtml && displayEmail.bodyHtml ? html`
         <div
           class="reader-body"
-          dangerouslySetInnerHTML=${{ __html: DOMPurify.sanitize(displayEmail.bodyHtml, {
-            FORBID_TAGS: ['style', 'form'],
-            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-            ALLOW_DATA_ATTR: false,
-          }) }}
+          dangerouslySetInnerHTML=${{ __html: sanitizedHtml }}
         />
         <button class="btn btn-ghost" style="margin-top: 8px; font-size: 11px;" onClick=${() => setShowHtml(false)}>
           ← plain text

@@ -175,12 +175,13 @@ function App() {
   }, []);
 
   const handleEmailUpdated = useCallback((updated: GmailMessage) => {
+    const lite: GmailMessage = { ...updated, body: '', bodyHtml: '', attachments: [] };
     setLabelCache(prev => {
       const next = { ...prev };
       for (const key of Object.keys(next)) {
         const data = next[key];
-        if (data.emails.some(e => e.id === updated.id)) {
-          next[key] = { ...data, emails: data.emails.map(e => e.id === updated.id ? updated : e) };
+        if (data.emails.some(e => e.id === lite.id)) {
+          next[key] = { ...data, emails: data.emails.map(e => e.id === lite.id ? lite : e) };
         }
       }
       return next;
