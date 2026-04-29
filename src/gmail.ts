@@ -275,15 +275,21 @@ export async function trashMessage(id: string): Promise<void> {
 // ── Labels ──
 
 export async function listLabels(): Promise<GmailLabel[]> {
-  const response = await gmailFetch('/labels?fields=labels(id,name,type,messagesTotal,messagesUnread)');
+  const response = await gmailFetch('/labels?fields=labels(id,name,type,messagesTotal,messagesUnread,color)');
   const data = await response.json();
-  return (data.labels || []).map((l: Record<string, unknown>) => ({
-    id: l.id as string,
-    name: l.name as string,
-    type: l.type as string,
-    messagesTotal: l.messagesTotal as number | undefined,
-    messagesUnread: l.messagesUnread as number | undefined,
-  }));
+  return (data.labels || []).map((l: Record<string, unknown>) => {
+    const color = l.color as { textColor?: string; backgroundColor?: string } | undefined;
+    return {
+      id: l.id as string,
+      name: l.name as string,
+      type: l.type as string,
+      messagesTotal: l.messagesTotal as number | undefined,
+      messagesUnread: l.messagesUnread as number | undefined,
+      color: color && (color.textColor || color.backgroundColor)
+        ? { textColor: color.textColor, backgroundColor: color.backgroundColor }
+        : undefined,
+    };
+  });
 }
 
 // ── Parse helpers ──

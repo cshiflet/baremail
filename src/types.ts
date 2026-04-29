@@ -39,6 +39,12 @@ export interface GmailLabel {
   type: string;
   messagesTotal?: number;
   messagesUnread?: number;
+  color?: GmailLabelColor;
+}
+
+export interface GmailLabelColor {
+  textColor?: string;
+  backgroundColor?: string;
 }
 
 export interface OutboxMessage {

@@ -2,7 +2,7 @@ import { h, render } from 'preact';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import htm from 'htm';
 import { initAuth, isAuthenticated, handleOAuthCallback, logout, getUserEmail } from './auth.js';
-import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread } from './gmail.js';
+import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread, listLabels } from './gmail.js';
 import { getPref, setPref, getOutboxCount } from './cache.js';
 import { Header, WIDTH_PRESETS, DEFAULT_WIDTH_ID } from './components/header.js';
 import { Nav } from './components/nav.js';
@@ -12,7 +12,7 @@ import { LoginView } from './views/login.js';
 import { InboxView } from './views/inbox.js';
 import { ReaderView } from './views/reader.js';
 import { ComposeView } from './views/compose.js';
-import type { View, GmailMessage, ComposeData, ConnectionStatus } from './types.js';
+import type { View, GmailMessage, ComposeData, ConnectionStatus, GmailLabel } from './types.js';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -36,6 +36,7 @@ function App() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('online');
   const [outboxCount, setOutboxCount] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [labels, setLabels] = useState<GmailLabel[]>([]);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -70,6 +71,14 @@ function App() {
 
         const count = await getOutboxCount();
         setOutboxCount(count);
+
+        const cachedLabels = await getPref<GmailLabel[]>('labels', []);
+        if (cachedLabels.length > 0) setLabels(cachedLabels);
+        if (isAuthenticated()) {
+          listLabels()
+            .then(fresh => { setLabels(fresh); setPref('labels', fresh); })
+            .catch(err => console.error('Failed to refresh labels:', err));
+        }
       } catch (err) {
         console.error('Init error:', err);
       }
