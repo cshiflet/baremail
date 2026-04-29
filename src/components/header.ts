@@ -6,6 +6,21 @@ import type { ConnectionStatus } from '../types.js';
 
 const html = htm.bind(h);
 
+export interface WidthPreset {
+  id: string;
+  label: string;
+  value: string;
+}
+
+export const WIDTH_PRESETS: WidthPreset[] = [
+  { id: 'narrow', label: 'narrow', value: '800px' },
+  { id: 'medium', label: 'medium', value: '1000px' },
+  { id: 'wide',   label: 'wide',   value: '1200px' },
+  { id: 'full',   label: 'full',   value: '100%' },
+];
+
+export const DEFAULT_WIDTH_ID = 'medium';
+
 interface HeaderProps {
   connectionStatus: ConnectionStatus;
   unreadCount: number;
@@ -16,11 +31,16 @@ interface HeaderProps {
   userEmail: string | null;
   onLogout: () => void;
   onRefresh: () => void;
+  containerWidth: string;
+  onSetContainerWidth: (id: string) => void;
+  onCycleContainerWidth: () => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
+  const [showWidth, setShowWidth] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const widthPopoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!showAccount) return;
@@ -32,6 +52,19 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [showAccount]);
+
+  useEffect(() => {
+    if (!showWidth) return;
+    const close = (e: MouseEvent) => {
+      if (widthPopoverRef.current && !widthPopoverRef.current.contains(e.target as Node)) {
+        setShowWidth(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showWidth]);
+
+  const currentPreset = WIDTH_PRESETS.find(p => p.id === containerWidth) ?? WIDTH_PRESETS.find(p => p.id === DEFAULT_WIDTH_ID)!;
 
   const statusText = connectionStatus === 'online' ? 'connected'
     : connectionStatus === 'slow' ? 'slow connection'
@@ -70,6 +103,29 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
           `}
         </span>
         <span>
+          <span class="width-control" ref=${widthPopoverRef}>
+            <button class="width-cycle-btn" onClick=${onCycleContainerWidth} title="cycle width">
+              ↔ ${currentPreset.label}
+            </button>
+            <button class="width-dropdown-btn" onClick=${() => setShowWidth(v => !v)} title="choose width">
+              ▾
+            </button>
+            ${showWidth && html`
+              <div class="width-popover">
+                ${WIDTH_PRESETS.map(p => html`
+                  <button
+                    key=${p.id}
+                    class="width-popover-option ${p.id === containerWidth ? 'active' : ''}"
+                    onClick=${() => { onSetContainerWidth(p.id); setShowWidth(false); }}
+                  >
+                    <span>${p.label}</span>
+                    ${p.label !== p.value && html`<span class="width-popover-hint">${p.value}</span>`}
+                  </button>
+                `)}
+              </div>
+            `}
+          </span>
+          ${' · '}
           <button class="theme-toggle" onClick=${onToggleTheme}>
             ${theme === 'dark' ? '◑ light' : '◐ dark'}
           </button>
