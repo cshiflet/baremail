@@ -1,10 +1,10 @@
 import { h } from 'preact';
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import htm from 'htm';
-import { formatDate, Loading } from '../components/common.js';
+import { formatDate, Loading, LabelChips } from '../components/common.js';
 import { listMessages, batchGetMetadata, archiveMessage, markAsRead, markAsUnread } from '../gmail.js';
 import { cacheMessages, getAllCachedMessages } from '../cache.js';
-import type { GmailMessage } from '../types.js';
+import type { GmailMessage, GmailLabel } from '../types.js';
 
 const html = htm.bind(h);
 
@@ -52,6 +52,8 @@ interface InboxProps {
   onSearchClear: () => void;
   selectedIndex: number;
   inboxZeroBear: any;
+  labels: GmailLabel[];
+  useGmailLabelColors: boolean;
 }
 
 export function InboxView({
@@ -72,6 +74,8 @@ export function InboxView({
   onSearchClear,
   selectedIndex,
   inboxZeroBear,
+  labels,
+  useGmailLabelColors,
 }: InboxProps) {
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -323,6 +327,9 @@ export function InboxView({
                 ? highlightMatch(email.subject, searchHighlight)
                 : email.subject}
             </span>
+            <div class="inbox-row-labels">
+              <${LabelChips} messageLabelIds=${email.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
+            </div>
           </div>
 
           <span class="inbox-date">

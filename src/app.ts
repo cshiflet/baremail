@@ -517,6 +517,8 @@ function App() {
             onSearchClear=${handleSearchClear}
             selectedIndex=${selectedIndex}
             inboxZeroBear=${html`<${InboxZeroBear} />`}
+            labels=${labels}
+            useGmailLabelColors=${useGmailLabelColors}
           />
         `}
 
