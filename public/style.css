@@ -656,7 +656,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 /* ── Inbox ── */
 .inbox-row {
   display: grid;
-  grid-template-columns: 20px 1fr auto auto;
+  grid-template-columns: 20px 1fr 90px auto;
   gap: 8px;
   align-items: baseline;
   padding: 10px 8px;
@@ -717,11 +717,18 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   color: var(--dim-text);
   font-size: 11px;
   white-space: nowrap;
+  text-align: right;
 }
 
 .inbox-actions {
   opacity: 0;
   font-size: 11px;
+}
+
+/* Stabilize the read/unread button width so the actions column doesn't
+   change width row to row, which would shift the date column. */
+.inbox-actions > button:first-child {
+  min-width: 84px;
 }
 
 .inbox-row:hover .inbox-actions { opacity: 1; }
@@ -1951,7 +1958,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .inbox-row {
-    grid-template-columns: 16px 1fr auto;
+    grid-template-columns: 16px 1fr 70px;
     gap: 4px;
     padding: 8px 4px;
   }
