@@ -622,20 +622,6 @@ function App() {
   const totalBytes = getTotalBytes();
   const isOnline = connectionStatus !== 'offline';
 
-  // tabCounts is keyed on the base label name. Pull counts from whichever
-  // entry matches the current mode so the displayed numbers reflect what
-  // the user actually sees.
-  const tabCounts: Record<string, number> = {};
-  for (const key of Object.keys(labelCache)) {
-    const isThreadsKey = key.endsWith(':t');
-    const isMessagesKey = key.endsWith(':m');
-    if (!isThreadsKey && !isMessagesKey) continue;
-    if ((isThreadsKey && !conversationMode) || (isMessagesKey && conversationMode)) continue;
-    const baseKey = key.slice(0, -2);
-    const data = labelCache[key];
-    tabCounts[baseKey] = (conversationMode ? data.threads?.length : data.emails?.length) || 0;
-  }
-
   // ── Login view ──
   if (view === 'login' || !isAuthenticated()) {
     return html`
@@ -723,7 +709,6 @@ function App() {
           <${Nav}
             activeLabel=${activeLabel}
             view=${view}
-            tabCounts=${tabCounts}
             searchQuery=${localSearchQuery}
             apiSearchQuery=${apiSearchQuery}
             onTabClick=${handleTabClick}

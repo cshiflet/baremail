@@ -20,10 +20,17 @@ const CATEGORY_DISPLAY: Record<string, { name: string; icon: string }> = {
   CATEGORY_FORUMS:     { name: 'forums',     icon: '#' },
 };
 
+// Map our friendly tab ids to Gmail label ids for unread-count lookup.
+const TAB_TO_LABEL_ID: Record<string, string> = {
+  inbox:   'INBOX',
+  starred: 'STARRED',
+  sent:    'SENT',
+  drafts:  'DRAFT',
+};
+
 interface NavProps {
   activeLabel: string;
   view: View;
-  tabCounts: Record<string, number>;
   searchQuery: string;
   apiSearchQuery: string;
   onTabClick: (tab: string) => void;
@@ -35,9 +42,15 @@ interface NavProps {
   showCategoryTabs: boolean;
 }
 
-export function Nav({ activeLabel, view, tabCounts, searchQuery, apiSearchQuery, onTabClick, onSearchInput, onSearchSubmit, onSearchClear, onCompose, labels, showCategoryTabs }: NavProps) {
-  const countLabel = (id: string) => {
-    const count = tabCounts[id];
+export function Nav({ activeLabel, view, searchQuery, apiSearchQuery, onTabClick, onSearchInput, onSearchSubmit, onSearchClear, onCompose, labels, showCategoryTabs }: NavProps) {
+  const labelById = new Map(labels.map(l => [l.id, l]));
+
+  // Show the Gmail label's total unread count — including unread items the
+  // app hasn't loaded yet — rather than the count of currently-cached items.
+  const countLabel = (tabId: string) => {
+    const labelId = TAB_TO_LABEL_ID[tabId] || tabId;
+    const label = labelById.get(labelId);
+    const count = label?.messagesUnread ?? 0;
     return count ? ` (${count})` : '';
   };
 
