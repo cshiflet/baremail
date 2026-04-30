@@ -731,7 +731,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   font-size: 11px;
   line-height: 20px;
   display: inline-flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: baseline;
   gap: 1px;
 }
