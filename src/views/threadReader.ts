@@ -37,7 +37,17 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
   const [loading, setLoading] = useState(true);
   const [linkMode, setLinkMode] = useState<LinkMode>('labeled');
   const [showLabelsForId, setShowLabelsForId] = useState<string | null>(null);
+  const [showHtmlForIds, setShowHtmlForIds] = useState<Set<string>>(new Set());
   const labelsPopoverRefs = useRef<Map<string, HTMLSpanElement | null>>(new Map());
+
+  const toggleHtmlForId = (id: string) => {
+    setShowHtmlForIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Load the full thread (with bodies). The incoming thread has metadata only.
   useEffect(() => {
@@ -45,6 +55,7 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
     setFullThread(null);
     setLoading(true);
     setShowLabelsForId(null);
+    setShowHtmlForIds(new Set());
 
     (async () => {
       try {
@@ -330,12 +341,33 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
                   <${LabelChips} messageLabelIds=${message.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
                 </div>
               `}
-              ${message.body
-                ? html`<div class="reader-body">${linkifyBody(message.body, linkMode)}</div>`
-                : message.bodyHtml
-                  ? html`<div class="reader-body" dangerouslySetInnerHTML=${{ __html: sanitizeEmailHtml(message.bodyHtml) }} />`
-                  : html`<div class="reader-body">(empty message)</div>`
-              }
+              ${(() => {
+                const showHtml = showHtmlForIds.has(message.id) && !!message.bodyHtml;
+                if (showHtml) {
+                  return html`
+                    <div class="reader-body" dangerouslySetInnerHTML=${{ __html: sanitizeEmailHtml(message.bodyHtml) }} />
+                    <button class="btn btn-ghost" style="margin-top: 8px; font-size: 11px;" onClick=${() => toggleHtmlForId(message.id)}>
+                      ← plain text
+                    </button>
+                  `;
+                }
+                if (message.body) {
+                  return html`
+                    <div class="reader-body">${linkifyBody(message.body, linkMode)}</div>
+                    ${message.bodyHtml && html`
+                      <button class="btn btn-ghost" style="margin-top: 8px; font-size: 11px;" onClick=${() => toggleHtmlForId(message.id)}>
+                        show original HTML
+                      </button>
+                    `}
+                  `;
+                }
+                if (message.bodyHtml) {
+                  return html`
+                    <div class="reader-body" dangerouslySetInnerHTML=${{ __html: sanitizeEmailHtml(message.bodyHtml) }} />
+                  `;
+                }
+                return html`<div class="reader-body">(empty message)</div>`;
+              })()}
               ${message.attachments?.length > 0 && html`
                 <div class="thread-message-attachments">
                   <div style="color: var(--dim-text); font-size: 11px; margin-bottom: 8px;">
