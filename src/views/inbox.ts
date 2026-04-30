@@ -162,6 +162,11 @@ export function InboxView({
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  // Tracks whether the sentinel was last seen *out* of the trigger zone.
+  // We only auto-load on the transition from out → in, so a newly attached
+  // observer (after a fetch completes) doesn't immediately fire again just
+  // because the sentinel is still near the bottom of the viewport.
+  const sentinelOutOfViewRef = useRef<boolean>(true);
 
   const isLocalSearch = !!localSearchQuery && !apiSearchQuery;
   const isApiSearch = !!apiSearchQuery;
@@ -283,9 +288,9 @@ export function InboxView({
   }, [refreshTrigger]);
 
   // In auto-scroll mode, watch a sentinel near the bottom of the list and
-  // trigger the next page when it scrolls into view (or within 200px of it).
-  // The effect re-runs when nextPageToken or loading change so each pass uses
-  // the current values; the observer disconnects on cleanup.
+  // trigger the next page when it transitions from out-of-view to in-view.
+  // The transition guard avoids firing again right after a fetch completes,
+  // when the sentinel may still be within the rootMargin trigger zone.
   useEffect(() => {
     if (inboxScrollMode !== 'auto') return;
     if (!nextPageToken) return;
@@ -294,8 +299,13 @@ export function InboxView({
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(entries => {
-      if (entries.some(e => e.isIntersecting)) {
+      const e = entries[0];
+      if (!e) return;
+      if (e.isIntersecting && sentinelOutOfViewRef.current) {
+        sentinelOutOfViewRef.current = false;
         fetchInbox(nextPageToken);
+      } else if (!e.isIntersecting) {
+        sentinelOutOfViewRef.current = true;
       }
     }, { rootMargin: '200px' });
     observer.observe(sentinel);
