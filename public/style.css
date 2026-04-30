@@ -664,6 +664,60 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   cursor: pointer;
 }
 
+/* In conversation mode each row gets a chevron column at the start so
+   single- and multi-message threads share the same column layout. */
+.inbox-row.inbox-row-thread,
+.inbox-row.inbox-row-message {
+  grid-template-columns: 16px 20px 1fr 90px auto;
+}
+
+.inbox-row-chevron {
+  background: transparent;
+  border: none;
+  color: var(--dim-text);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.inbox-row-chevron:hover {
+  color: var(--amber);
+}
+
+.inbox-row-chevron-spacer {
+  display: inline-block;
+  width: 16px;
+}
+
+/* Expanded thread parent: subtle accent so the boundary is visible. */
+.inbox-row-thread.is-expanded {
+  border-bottom-color: var(--amber-dim);
+}
+
+/* Nested message rows under an expanded thread. Slightly muted and with a
+   left rule so the grouping reads at a glance. */
+.inbox-row-message {
+  background: color-mix(in srgb, var(--bg-light) 40%, transparent);
+  padding-left: 16px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--border) 25%, transparent);
+}
+
+.inbox-row-message .inbox-from,
+.inbox-row-message .inbox-subject {
+  font-size: 11px;
+}
+
+.inbox-row-message:hover {
+  background: var(--bg-highlight);
+}
+
 .inbox-row:hover { background: var(--bg-highlight); }
 
 .inbox-indicator {
@@ -1969,6 +2023,11 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
     grid-template-columns: 16px 1fr 70px;
     gap: 4px;
     padding: 8px 4px;
+  }
+
+  .inbox-row.inbox-row-thread,
+  .inbox-row.inbox-row-message {
+    grid-template-columns: 14px 16px 1fr 70px;
   }
 
   .inbox-actions { display: none; }

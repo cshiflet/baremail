@@ -163,12 +163,22 @@ export function InboxView({
 }: InboxProps) {
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const sentinelRef = useRef<HTMLDivElement>(null);
   // Tracks whether the sentinel was last seen *out* of the trigger zone.
   // We only auto-load on the transition from out → in, so a newly attached
   // observer (after a fetch completes) doesn't immediately fire again just
   // because the sentinel is still near the bottom of the viewport.
   const sentinelOutOfViewRef = useRef<boolean>(true);
+
+  const toggleThreadExpanded = (threadId: string) => {
+    setExpandedThreads(prev => {
+      const next = new Set(prev);
+      if (next.has(threadId)) next.delete(threadId);
+      else next.add(threadId);
+      return next;
+    });
+  };
 
   const isLocalSearch = !!localSearchQuery && !apiSearchQuery;
   const isApiSearch = !!apiSearchQuery;
@@ -479,68 +489,115 @@ export function InboxView({
       `}
 
       ${conversationMode
-        ? displayThreads.map((thread, i) => {
+        ? displayThreads.flatMap((thread, i) => {
             const display = describeThread(thread, userEmail);
-            return html`
-              <div
-                key=${thread.id}
-                class="inbox-row fade-in"
-                onClick=${() => onOpenThread(thread)}
-                style=${{
-                  animationDelay: `${Math.min(i, 8) * 40}ms`,
-                  background: selectedIndex === i ? 'var(--bg-highlight)' : undefined,
-                }}
-              >
-                <span class="inbox-indicator">
-                  ${display.isUnread
-                    ? html`<span class="unread">●</span>`
-                    : display.isStarred
-                      ? html`<span class="starred">★</span>`
-                      : html`<span class="read">·</span>`
+            const isMulti = thread.messages.length > 1;
+            const isExpanded = expandedThreads.has(thread.id);
+            const rows: any[] = [
+              html`
+                <div
+                  key=${thread.id}
+                  class="inbox-row inbox-row-thread fade-in ${isExpanded ? 'is-expanded' : ''}"
+                  onClick=${() => onOpenThread(thread)}
+                  style=${{
+                    animationDelay: `${Math.min(i, 8) * 40}ms`,
+                    background: selectedIndex === i ? 'var(--bg-highlight)' : undefined,
+                  }}
+                >
+                  ${isMulti
+                    ? html`
+                      <button
+                        class="inbox-row-chevron"
+                        onClick=${(e: Event) => { e.stopPropagation(); toggleThreadExpanded(thread.id); }}
+                        title=${isExpanded ? 'collapse thread' : 'expand thread'}
+                      >${isExpanded ? '▾' : '▸'}</button>
+                    `
+                    : html`<span class="inbox-row-chevron-spacer" />`
                   }
-                </span>
+                  <span class="inbox-indicator">
+                    ${display.isUnread
+                      ? html`<span class="unread">●</span>`
+                      : display.isStarred
+                        ? html`<span class="starred">★</span>`
+                        : html`<span class="read">·</span>`
+                    }
+                  </span>
 
-                <div class="inbox-content">
-                  <span class="inbox-from ${display.isUnread ? 'unread' : 'read'}">
-                    ${searchHighlight
-                      ? highlightMatch(display.senders, searchHighlight)
-                      : display.senders}
+                  <div class="inbox-content">
+                    <span class="inbox-from ${display.isUnread ? 'unread' : 'read'}">
+                      ${searchHighlight
+                        ? highlightMatch(display.senders, searchHighlight)
+                        : display.senders}
+                    </span>
+                    <span class="inbox-subject ${display.isUnread ? 'unread' : 'read'}">
+                      ${searchHighlight
+                        ? highlightMatch(display.subject, searchHighlight)
+                        : display.subject}
+                      ${display.count > 1 && html`<span class="inbox-thread-count">(${display.count})</span>`}
+                    </span>
+                    ${inboxLabelMode !== 'hidden' && html`
+                      <div class="inbox-row-labels ${inboxLabelMode === 'always' ? 'always' : ''}">
+                        <${LabelChips} messageLabelIds=${display.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
+                      </div>
+                    `}
+                  </div>
+
+                  <span class="inbox-date">
+                    ${formatDate(display.date)}
                   </span>
-                  <span class="inbox-subject ${display.isUnread ? 'unread' : 'read'}">
-                    ${searchHighlight
-                      ? highlightMatch(display.subject, searchHighlight)
-                      : display.subject}
-                    ${display.count > 1 && html`<span class="inbox-thread-count">(${display.count})</span>`}
-                  </span>
-                  ${inboxLabelMode !== 'hidden' && html`
-                    <div class="inbox-row-labels ${inboxLabelMode === 'always' ? 'always' : ''}">
-                      <${LabelChips} messageLabelIds=${display.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
-                    </div>
+
+                  ${showRowActions && html`
+                    <span class="inbox-actions">
+                      <button
+                        class="btn btn-secondary btn-sm"
+                        onClick=${(e: Event) => handleToggleUnreadThread(e, thread)}
+                      >
+                        ${display.isUnread ? 'mark read' : 'mark unread'}
+                      </button>
+                      <button
+                        class="btn btn-secondary btn-sm"
+                        onClick=${(e: Event) => handleArchiveThread(e, thread)}
+                      >
+                        archive
+                      </button>
+                    </span>
                   `}
                 </div>
+              `,
+            ];
 
-                <span class="inbox-date">
-                  ${formatDate(display.date)}
-                </span>
+            if (isExpanded && isMulti) {
+              for (const message of thread.messages) {
+                rows.push(html`
+                  <div
+                    key=${`${thread.id}:${message.id}`}
+                    class="inbox-row inbox-row-message fade-in"
+                    onClick=${() => onOpenEmail(message)}
+                  >
+                    <span class="inbox-row-chevron-spacer" />
+                    <span class="inbox-indicator">
+                      ${message.isUnread
+                        ? html`<span class="unread">●</span>`
+                        : message.isStarred
+                          ? html`<span class="starred">★</span>`
+                          : html`<span class="read">·</span>`
+                      }
+                    </span>
+                    <div class="inbox-content">
+                      <span class="inbox-from ${message.isUnread ? 'unread' : 'read'}">
+                        ${message.fromName || message.from}
+                      </span>
+                      <span class="inbox-subject ${message.isUnread ? 'unread' : 'read'}">
+                        ${message.snippet || message.subject || '(no preview)'}
+                      </span>
+                    </div>
+                    <span class="inbox-date">${formatDate(message.internalDate)}</span>
+                  </div>
+                `);
+              }
+            }
 
-                ${showRowActions && html`
-                  <span class="inbox-actions">
-                    <button
-                      class="btn btn-secondary btn-sm"
-                      onClick=${(e: Event) => handleToggleUnreadThread(e, thread)}
-                    >
-                      ${display.isUnread ? 'mark read' : 'mark unread'}
-                    </button>
-                    <button
-                      class="btn btn-secondary btn-sm"
-                      onClick=${(e: Event) => handleArchiveThread(e, thread)}
-                    >
-                      archive
-                    </button>
-                  </span>
-                `}
-              </div>
-            `;
+            return rows;
           })
         : displayEmails.map((email, i) => html`
           <div
