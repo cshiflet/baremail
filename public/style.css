@@ -681,9 +681,9 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 .inbox-row-chevron {
   background: transparent;
   border: none;
-  color: var(--dim-text);
+  color: var(--text);
   font-family: var(--font);
-  font-size: 11px;
+  font-size: 9px;
   cursor: pointer;
   padding: 0;
   width: 12px;

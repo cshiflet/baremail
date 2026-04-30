@@ -510,7 +510,7 @@ export function InboxView({
                         class="inbox-row-chevron"
                         onClick=${(e: Event) => { e.stopPropagation(); toggleThreadExpanded(thread.id); }}
                         title=${isExpanded ? 'collapse thread' : 'expand thread'}
-                      >${isExpanded ? '▾' : '▸'}</button>
+                      >${isExpanded ? '▼' : '▶'}</button>
                     `
                     : html`<span class="inbox-row-chevron-spacer" />`
                   }
