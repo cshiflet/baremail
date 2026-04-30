@@ -12,8 +12,11 @@ export function getTotalBytes(): number {
 }
 
 // Max retries for transient 429 / 5xx responses. Backoff is exponential
-// starting at 500ms (500, 1000, 2000, 4000).
+// starting at FETCH_RETRY_INITIAL_DELAY_MS (250, 500, 1000, 2000ms by
+// default). Gmail's per-user concurrency window typically clears within a
+// few hundred ms, so the first retry usually succeeds.
 const FETCH_RETRY_LIMIT = 4;
+const FETCH_RETRY_INITIAL_DELAY_MS = 250;
 
 async function gmailFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const token = await getAccessToken();
@@ -51,7 +54,7 @@ async function gmailFetch(path: string, options: RequestInit = {}): Promise<Resp
 
     // Drain body so the connection can be reused; ignore any errors.
     try { await response.text(); } catch { /* ignore */ }
-    const delay = 500 * Math.pow(2, attempt);
+    const delay = FETCH_RETRY_INITIAL_DELAY_MS * Math.pow(2, attempt);
     await new Promise(r => setTimeout(r, delay));
   }
   // Unreachable in practice, but satisfies the type checker.
@@ -103,7 +106,7 @@ export async function batchGmail<T = unknown>(
       }
     }
     if (failedIndices.length === 0) break;
-    const delay = 500 * Math.pow(2, attempt);
+    const delay = FETCH_RETRY_INITIAL_DELAY_MS * Math.pow(2, attempt);
     await new Promise(r => setTimeout(r, delay));
     const retryRequests = failedIndices.map(i => requests[i]);
     const retryResults = await sendOneBatch<T>(retryRequests);
@@ -163,7 +166,7 @@ async function sendOneBatch<T>(requests: BatchSubRequest[]): Promise<BatchSubRes
       break;
     }
     try { await response.text(); } catch { /* ignore */ }
-    const delay = 500 * Math.pow(2, attempt);
+    const delay = FETCH_RETRY_INITIAL_DELAY_MS * Math.pow(2, attempt);
     await new Promise(r => setTimeout(r, delay));
   }
 
