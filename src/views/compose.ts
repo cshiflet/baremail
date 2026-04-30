@@ -4,10 +4,12 @@ import htm from 'htm';
 import { TypewriterText, formatBytes } from '../components/common.js';
 import { sendMessage } from '../gmail.js';
 import type { SendAttachment } from '../gmail.js';
-import { queueOutbox } from '../cache.js';
+import { queueOutbox, getPref, setPref } from '../cache.js';
 import type { ComposeData, OutboxMessage } from '../types.js';
 
 const html = htm.bind(h);
+
+const BAREMAIL_FOOTER = '\n\nʕ·ᴥ·ʔ sent with BAREMAIL — email for bad wifi — baremail.app';
 
 interface ComposeProps {
   data: ComposeData;
@@ -75,6 +77,10 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
     setSending(true);
     setError('');
 
+    const footerEnabled = await getPref('footerEnabled', true);
+    const sentCount = await getPref<number>('sentCount', 0);
+    const finalBody = footerEnabled ? body + BAREMAIL_FOOTER : body;
+
     if (!isOnline) {
       const outboxMsg: OutboxMessage = {
         id: `outbox_${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -82,7 +88,7 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
         cc,
         bcc,
         subject,
-        body,
+        body: finalBody,
         threadId: data.threadId,
         inReplyTo: data.inReplyTo,
         createdAt: Date.now(),
@@ -104,13 +110,20 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
         }))
       );
 
-      await sendMessage(to, subject, body, {
+      await sendMessage(to, subject, finalBody, {
         cc: cc || undefined,
         bcc: bcc || undefined,
         threadId: data.threadId,
         inReplyTo: data.inReplyTo,
         attachments: sendAttachments.length > 0 ? sendAttachments : undefined,
       });
+
+      await setPref('sentCount', sentCount + 1);
+
+      if (sentCount + 1 === 10 && footerEnabled) {
+        // The prompt will be shown separately in the app
+        await setPref('showFooterPrompt', true);
+      }
 
       setSending(false);
       setSent(true);
@@ -125,7 +138,7 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
         cc,
         bcc,
         subject,
-        body,
+        body: finalBody,
         threadId: data.threadId,
         inReplyTo: data.inReplyTo,
         createdAt: Date.now(),
