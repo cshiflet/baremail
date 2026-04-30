@@ -405,19 +405,27 @@ function parseLabel(data: Record<string, unknown>): GmailLabel {
 
 // Gmail's labels.list returns slim objects without messagesTotal /
 // messagesUnread. Fetch the per-label counts with labels.get in parallel
-// so every label in the returned list has real counts.
+// so every label in the returned list has real counts. Individual failures
+// are swallowed so one bad label doesn't take down the whole refresh.
 export async function listLabels(): Promise<GmailLabel[]> {
   const response = await gmailFetch('/labels?fields=labels(id)');
   const data = await response.json();
   const ids = ((data.labels || []) as Array<{ id: string }>).map(l => l.id);
   if (ids.length === 0) return [];
-  const detailed = await Promise.all(ids.map(async id => {
+  const results = await Promise.allSettled(ids.map(async id => {
     const r = await gmailFetch(
       `/labels/${id}?fields=id,name,type,messagesTotal,messagesUnread,color`
     );
     return parseLabel(await r.json());
   }));
-  return detailed;
+  const labels: GmailLabel[] = [];
+  let failed = 0;
+  for (const r of results) {
+    if (r.status === 'fulfilled') labels.push(r.value);
+    else failed++;
+  }
+  if (failed > 0) console.warn(`[baremail] ${failed}/${ids.length} label.get calls failed`);
+  return labels;
 }
 
 // ── Parse helpers ──
