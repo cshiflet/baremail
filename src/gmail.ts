@@ -78,7 +78,9 @@ export interface BatchSubResult<T = unknown> {
 // Send many Gmail sub-requests as a single multipart/mixed batch. Counts as
 // one concurrent request server-side regardless of the number of sub-requests
 // (Gmail caps batches at 100, recommends ≤50). Outer request is retried on
-// 429/5xx with exponential backoff to match gmailFetch behavior.
+// 429/5xx with exponential backoff to match gmailFetch behavior, and any
+// sub-requests that come back 429 / 5xx are themselves re-batched with
+// backoff so transient bursts caused by rapid scrolling don't surface.
 export async function batchGmail<T = unknown>(
   requests: BatchSubRequest[],
 ): Promise<BatchSubResult<T>[]> {
@@ -87,6 +89,35 @@ export async function batchGmail<T = unknown>(
     console.warn(`[baremail] batch size ${requests.length} exceeds Gmail's recommended max of 50`);
   }
 
+  const results = await sendOneBatch<T>(requests);
+
+  // Retry sub-requests that returned 429/5xx. Each retry pass re-batches
+  // only the failed indices with exponential backoff, until none remain or
+  // we hit the retry limit.
+  for (let attempt = 0; attempt < FETCH_RETRY_LIMIT; attempt++) {
+    const failedIndices: number[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (!r.ok && (r.status === 429 || (r.status >= 500 && r.status < 600))) {
+        failedIndices.push(i);
+      }
+    }
+    if (failedIndices.length === 0) break;
+    const delay = 500 * Math.pow(2, attempt);
+    await new Promise(r => setTimeout(r, delay));
+    const retryRequests = failedIndices.map(i => requests[i]);
+    const retryResults = await sendOneBatch<T>(retryRequests);
+    for (let i = 0; i < failedIndices.length; i++) {
+      results[failedIndices[i]] = retryResults[i];
+    }
+  }
+
+  return results;
+}
+
+// One batch round-trip without sub-request retry. The OUTER request still
+// retries on 429/5xx of the batch endpoint itself.
+async function sendOneBatch<T>(requests: BatchSubRequest[]): Promise<BatchSubResult<T>[]> {
   const token = await getAccessToken();
   const boundary = `baremail_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
