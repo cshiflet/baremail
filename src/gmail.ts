@@ -403,36 +403,44 @@ function parseLabel(data: Record<string, unknown>): GmailLabel {
   };
 }
 
-// Gmail's labels.list returns slim objects without messagesTotal /
-// messagesUnread. Fetch the per-label counts with labels.get, in chunks so
-// we don't fire 50+ parallel requests at once and burn Gmail's per-second
-// rate-limit budget (subsequent message fetches would then 429). Individual
-// failures are swallowed so one bad label doesn't take down the refresh.
-const LABEL_GET_CHUNK_SIZE = 8;
-
+// Slim list. Gmail's labels.list omits messagesTotal/messagesUnread; those
+// require labels.get per label. We avoid fetching counts here so users with
+// many labels don't trip the per-user concurrent-request limit (429).
 export async function listLabels(): Promise<GmailLabel[]> {
-  const response = await gmailFetch('/labels?fields=labels(id)');
+  const response = await gmailFetch('/labels?fields=labels(id,name,type,color)');
   const data = await response.json();
-  const ids = ((data.labels || []) as Array<{ id: string }>).map(l => l.id);
-  if (ids.length === 0) return [];
+  return ((data.labels || []) as Array<Record<string, unknown>>).map(parseLabel);
+}
 
-  const labels: GmailLabel[] = [];
-  let failed = 0;
-  for (let i = 0; i < ids.length; i += LABEL_GET_CHUNK_SIZE) {
-    const chunk = ids.slice(i, i + LABEL_GET_CHUNK_SIZE);
-    const results = await Promise.allSettled(chunk.map(async id => {
-      const r = await gmailFetch(
-        `/labels/${id}?fields=id,name,type,messagesTotal,messagesUnread,color`
-      );
-      return parseLabel(await r.json());
-    }));
-    for (const r of results) {
-      if (r.status === 'fulfilled') labels.push(r.value);
-      else failed++;
+// Fetch a single label including counts. Caller is responsible for not
+// firing too many of these in parallel.
+export async function getLabel(id: string): Promise<GmailLabel> {
+  const response = await gmailFetch(
+    `/labels/${id}?fields=id,name,type,messagesTotal,messagesUnread,color`
+  );
+  return parseLabel(await response.json());
+}
+
+// Fetch counts for the specified label ids sequentially, merge them into the
+// supplied label list, and return a new array. Sequential to keep Gmail's
+// concurrent-request limit happy on accounts with many labels in flight.
+export async function enrichLabelsWithCounts(
+  labels: GmailLabel[],
+  ids: string[],
+): Promise<GmailLabel[]> {
+  if (ids.length === 0) return labels;
+  const enriched = [...labels];
+  for (const id of ids) {
+    try {
+      const detailed = await getLabel(id);
+      const idx = enriched.findIndex(l => l.id === id);
+      if (idx !== -1) enriched[idx] = detailed;
+      else enriched.push(detailed);
+    } catch (err) {
+      console.warn(`[baremail] failed to fetch counts for label ${id}:`, err);
     }
   }
-  if (failed > 0) console.warn(`[baremail] ${failed}/${ids.length} label.get calls failed`);
-  return labels;
+  return enriched;
 }
 
 // ── Parse helpers ──

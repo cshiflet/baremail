@@ -2,7 +2,7 @@ import { h, render } from 'preact';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import htm from 'htm';
 import { initAuth, isAuthenticated, handleOAuthCallback, logout, getUserEmail } from './auth.js';
-import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread, listLabels, archiveThread, modifyThread } from './gmail.js';
+import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread, listLabels, enrichLabelsWithCounts, archiveThread, modifyThread } from './gmail.js';
 import { getPref, setPref, getOutboxCount } from './cache.js';
 import { Header, WIDTH_PRESETS, DEFAULT_WIDTH_ID } from './components/header.js';
 import { Nav } from './components/nav.js';
@@ -98,8 +98,25 @@ function App() {
         const cachedLabels = await getPref<GmailLabel[]>('labels', []);
         if (cachedLabels.length > 0) setLabels(cachedLabels);
         if (isAuthenticated()) {
+          // Fetch the slim labels list, then enrich the small set of labels
+          // we display counts for. Avoids labels.get fan-out for accounts
+          // with many user labels.
+          const COUNT_LABEL_IDS = [
+            'INBOX', 'STARRED', 'SENT', 'DRAFT',
+            'CATEGORY_PERSONAL', 'CATEGORY_SOCIAL', 'CATEGORY_PROMOTIONS',
+            'CATEGORY_UPDATES', 'CATEGORY_FORUMS',
+          ];
           listLabels()
-            .then(fresh => { setLabels(fresh); setPref('labels', fresh); })
+            .then(async fresh => {
+              setLabels(fresh);
+              await setPref('labels', fresh);
+              const idsToEnrich = fresh
+                .map(l => l.id)
+                .filter(id => COUNT_LABEL_IDS.includes(id));
+              const enriched = await enrichLabelsWithCounts(fresh, idsToEnrich);
+              setLabels(enriched);
+              await setPref('labels', enriched);
+            })
             .catch(err => console.error('Failed to refresh labels:', err));
         }
 
