@@ -48,9 +48,11 @@ interface HeaderProps {
   onToggleShowSidebar: () => void;
   inboxLabelMode: 'hidden' | 'hover' | 'always';
   onSetInboxLabelMode: (mode: 'hidden' | 'hover' | 'always') => void;
+  conversationMode: boolean;
+  onToggleConversationMode: () => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar, inboxLabelMode, onSetInboxLabelMode }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar, inboxLabelMode, onSetInboxLabelMode, conversationMode, onToggleConversationMode }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -169,6 +171,9 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
             <button class="settings-toggle" onClick=${() => setShowSettings(v => !v)} title="settings">settings</button>
             ${showSettings && html`
               <div class="settings-popover">
+                <button class="settings-popover-toggle" onClick=${onToggleConversationMode}>
+                  <span class="checkbox-glyph">${conversationMode ? '[x]' : '[ ]'}</span> conversation view
+                </button>
                 <button class="settings-popover-toggle" onClick=${onToggleShowSidebar}>
                   <span class="checkbox-glyph">${showSidebar ? '[x]' : '[ ]'}</span> show label sidebar
                 </button>

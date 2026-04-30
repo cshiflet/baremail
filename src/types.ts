@@ -42,6 +42,12 @@ export interface GmailLabel {
   color?: GmailLabelColor;
 }
 
+export interface GmailThread {
+  id: string;
+  historyId?: string;
+  messages: GmailMessage[];
+}
+
 export interface GmailLabelColor {
   textColor?: string;
   backgroundColor?: string;

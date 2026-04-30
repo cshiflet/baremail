@@ -2,7 +2,7 @@ import { h, render } from 'preact';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import htm from 'htm';
 import { initAuth, isAuthenticated, handleOAuthCallback, logout, getUserEmail } from './auth.js';
-import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread, listLabels } from './gmail.js';
+import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread, listLabels, archiveThread, modifyThread } from './gmail.js';
 import { getPref, setPref, getOutboxCount } from './cache.js';
 import { Header, WIDTH_PRESETS, DEFAULT_WIDTH_ID } from './components/header.js';
 import { Nav } from './components/nav.js';
@@ -12,8 +12,9 @@ import { InboxZeroBear } from './components/bear.js';
 import { LoginView } from './views/login.js';
 import { InboxView } from './views/inbox.js';
 import { ReaderView } from './views/reader.js';
+import { ThreadReaderView } from './views/threadReader.js';
 import { ComposeView } from './views/compose.js';
-import type { View, GmailMessage, ComposeData, ConnectionStatus, GmailLabel } from './types.js';
+import type { View, GmailMessage, ComposeData, ConnectionStatus, GmailLabel, GmailThread } from './types.js';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -28,6 +29,7 @@ const DEFAULT_FOOTER_TEXT = '\n\nʕ·ᴥ·ʔ sent with BAREMAIL — email for ba
 function App() {
   const [view, setView] = useState<View>('login');
   const [selectedEmail, setSelectedEmail] = useState<GmailMessage | null>(null);
+  const [selectedThread, setSelectedThread] = useState<GmailThread | null>(null);
   const [composeData, setComposeData] = useState<ComposeData>(EMPTY_COMPOSE);
   const [activeLabel, setActiveLabel] = useState('inbox');
   const [localSearchQuery, setLocalSearchQuery] = useState('');
@@ -48,15 +50,23 @@ function App() {
   const [footerText, setFooterText] = useState<string>(DEFAULT_FOOTER_TEXT);
   const [showSidebar, setShowSidebar] = useState<boolean>(true);
   const [inboxLabelMode, setInboxLabelMode] = useState<'hidden' | 'hover' | 'always'>('hover');
+  const [conversationMode, setConversationMode] = useState<boolean>(true);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
-  interface LabelData { emails: GmailMessage[]; nextPageToken: string | null; }
+  interface LabelData {
+    emails?: GmailMessage[];
+    threads?: GmailThread[];
+    nextPageToken: string | null;
+  }
   const [labelCache, setLabelCache] = useState<Record<string, LabelData>>({});
 
-  const cacheKey = apiSearchQuery ? `search:${apiSearchQuery}` : activeLabel;
+  // Cache key includes mode so a mode toggle re-keys to a fresh entry and
+  // triggers refetch instead of trying to mix shapes.
+  const cacheKey = (apiSearchQuery ? `search:${apiSearchQuery}` : activeLabel) + (conversationMode ? ':t' : ':m');
   const currentData = labelCache[cacheKey];
   const emails = currentData?.emails || [];
+  const threads = currentData?.threads || [];
   const nextPageToken = currentData?.nextPageToken || null;
 
   // ── Init ──
@@ -99,6 +109,7 @@ function App() {
         setShowSidebar(await getPref<boolean>('showSidebar', true));
         const savedMode = await getPref<string>('inboxLabelMode', 'hover');
         setInboxLabelMode(savedMode === 'hidden' || savedMode === 'always' ? savedMode : 'hover');
+        setConversationMode(await getPref<boolean>('conversationMode', true));
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -180,6 +191,12 @@ function App() {
     await setPref('inboxLabelMode', mode);
   }, []);
 
+  const toggleConversationMode = useCallback(async () => {
+    const next = !conversationMode;
+    setConversationMode(next);
+    await setPref('conversationMode', next);
+  }, [conversationMode]);
+
   // ── Container width ──
   const setContainerWidth = useCallback(async (id: string) => {
     const preset = WIDTH_PRESETS.find(p => p.id === id);
@@ -200,6 +217,13 @@ function App() {
   // ── Navigation helpers ──
   const openEmail = useCallback((email: GmailMessage) => {
     setSelectedEmail(email);
+    setSelectedThread(null);
+    setView('reader');
+  }, []);
+
+  const openThread = useCallback((thread: GmailThread) => {
+    setSelectedThread(thread);
+    setSelectedEmail(null);
     setView('reader');
   }, []);
 
@@ -221,12 +245,14 @@ function App() {
   const goToInbox = useCallback(() => {
     setView('inbox');
     setSelectedEmail(null);
+    setSelectedThread(null);
   }, []);
 
   const handleTabClick = useCallback((tab: string) => {
     setActiveLabel(tab);
     setView('inbox');
     setSelectedEmail(null);
+    setSelectedThread(null);
     setLocalSearchQuery('');
     setApiSearchQuery('');
     setSelectedIndex(0);
@@ -263,10 +289,55 @@ function App() {
       }
       return {
         ...prev,
-        [key]: { emails, nextPageToken: token },
+        [key]: { ...existing, emails, nextPageToken: token },
       };
     });
   }, []);
+
+  const handleThreadsLoaded = useCallback((key: string, newThreads: GmailThread[], token: string | null, append = false) => {
+    setLabelCache(prev => {
+      const existing = prev[key];
+      let threads: GmailThread[];
+      if (append) {
+        const existingIds = new Set((existing?.threads || []).map(t => t.id));
+        const deduped = newThreads.filter(t => !existingIds.has(t.id));
+        threads = [...(existing?.threads || []), ...deduped];
+      } else {
+        threads = newThreads;
+      }
+      return {
+        ...prev,
+        [key]: { ...existing, threads, nextPageToken: token },
+      };
+    });
+  }, []);
+
+  const handleThreadUpdated = useCallback((updated: GmailThread) => {
+    setLabelCache(prev => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        const data = next[key];
+        if (data.threads?.some(t => t.id === updated.id)) {
+          next[key] = { ...data, threads: data.threads.map(t => t.id === updated.id ? updated : t) };
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  const handleThreadArchived = useCallback((id: string) => {
+    setLabelCache(prev => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        const data = next[key];
+        if (data.threads?.some(t => t.id === id)) {
+          next[key] = { ...data, threads: data.threads.filter(t => t.id !== id) };
+        }
+      }
+      return next;
+    });
+    if (view === 'reader') goToInbox();
+  }, [view, goToInbox]);
 
   const handleEmailUpdated = useCallback((updated: GmailMessage) => {
     const lite: GmailMessage = { ...updated, body: '', bodyHtml: '', attachments: [] };
@@ -312,6 +383,7 @@ function App() {
     setLocalSearchQuery('');
     setView('inbox');
     setSelectedEmail(null);
+    setSelectedThread(null);
     setSelectedIndex(0);
   }, []);
 
@@ -320,6 +392,7 @@ function App() {
     setView('login');
     setLabelCache({});
     setSelectedEmail(null);
+    setSelectedThread(null);
   }, []);
 
 
@@ -361,44 +434,91 @@ function App() {
       }
 
       if (view === 'inbox') {
+        const inboxItemCount = conversationMode ? threads.length : emails.length;
         if (e.key === '/') {
           e.preventDefault();
           const searchInput = document.querySelector('.nav-search input') as HTMLInputElement;
           searchInput?.focus();
         } else if (e.key === 'j') {
           e.preventDefault();
-          setSelectedIndex(i => Math.min(i + 1, emails.length - 1));
+          setSelectedIndex(i => Math.min(i + 1, inboxItemCount - 1));
         } else if (e.key === 'k') {
           e.preventDefault();
           setSelectedIndex(i => Math.max(i - 1, 0));
         } else if ((e.key === 'o' || e.key === 'Enter') && !isButton) {
           e.preventDefault();
-          const email = emails[selectedIndexRef.current];
-          if (email) openEmail(email);
+          if (conversationMode) {
+            const thread = threads[selectedIndexRef.current];
+            if (thread) openThread(thread);
+          } else {
+            const email = emails[selectedIndexRef.current];
+            if (email) openEmail(email);
+          }
         } else if (e.key === 'e') {
           e.preventDefault();
-          const email = emails[selectedIndexRef.current];
-          if (email) {
-            archiveMessage(email.id).then(() => handleArchived(email.id));
+          if (conversationMode) {
+            const thread = threads[selectedIndexRef.current];
+            if (thread) archiveThread(thread.id).then(() => handleThreadArchived(thread.id));
+          } else {
+            const email = emails[selectedIndexRef.current];
+            if (email) archiveMessage(email.id).then(() => handleArchived(email.id));
           }
         } else if (e.key === 's') {
           e.preventDefault();
-          const email = emails[selectedIndexRef.current];
-          if (email) {
-            const toggle = email.isStarred ? unstarMessage : starMessage;
-            toggle(email.id).then(() => {
-              handleEmailUpdated({ ...email, isStarred: !email.isStarred });
-            });
+          if (conversationMode) {
+            const thread = threads[selectedIndexRef.current];
+            const latest = thread?.messages[thread.messages.length - 1];
+            if (thread && latest) {
+              const toggle = latest.isStarred ? unstarMessage : starMessage;
+              toggle(latest.id).then(() => {
+                const updatedThread: GmailThread = {
+                  ...thread,
+                  messages: thread.messages.map(m =>
+                    m.id === latest.id ? { ...m, isStarred: !latest.isStarred } : m
+                  ),
+                };
+                handleThreadUpdated(updatedThread);
+              });
+            }
+          } else {
+            const email = emails[selectedIndexRef.current];
+            if (email) {
+              const toggle = email.isStarred ? unstarMessage : starMessage;
+              toggle(email.id).then(() => {
+                handleEmailUpdated({ ...email, isStarred: !email.isStarred });
+              });
+            }
           }
         } else if (e.key === 'u') {
           e.preventDefault();
-          const email = emails[selectedIndexRef.current];
-          if (email) {
-            const wantUnread = !email.isUnread;
-            const fn = wantUnread ? markAsUnread : markAsRead;
-            fn(email.id).then(() => {
-              handleEmailUpdated({ ...email, isUnread: wantUnread });
-            });
+          if (conversationMode) {
+            const thread = threads[selectedIndexRef.current];
+            if (thread) {
+              const wasUnread = thread.messages.some(m => m.isUnread);
+              const wantUnread = !wasUnread;
+              modifyThread(thread.id, wantUnread ? ['UNREAD'] : undefined, wantUnread ? undefined : ['UNREAD']).then(() => {
+                const updatedThread: GmailThread = {
+                  ...thread,
+                  messages: thread.messages.map(m => ({
+                    ...m,
+                    isUnread: wantUnread,
+                    labelIds: wantUnread
+                      ? (m.labelIds.includes('UNREAD') ? m.labelIds : [...m.labelIds, 'UNREAD'])
+                      : m.labelIds.filter(l => l !== 'UNREAD'),
+                  })),
+                };
+                handleThreadUpdated(updatedThread);
+              });
+            }
+          } else {
+            const email = emails[selectedIndexRef.current];
+            if (email) {
+              const wantUnread = !email.isUnread;
+              const fn = wantUnread ? markAsUnread : markAsRead;
+              fn(email.id).then(() => {
+                handleEmailUpdated({ ...email, isUnread: wantUnread });
+              });
+            }
           }
         } else if (e.key === 'c') {
           e.preventDefault();
@@ -414,12 +534,27 @@ function App() {
           replyBtn?.click();
         } else if (e.key === 'e') {
           e.preventDefault();
-          if (selectedEmail) {
+          if (selectedThread) {
+            archiveThread(selectedThread.id).then(() => handleThreadArchived(selectedThread.id));
+          } else if (selectedEmail) {
             archiveMessage(selectedEmail.id).then(() => handleArchived(selectedEmail.id));
           }
         } else if (e.key === 's') {
           e.preventDefault();
-          if (selectedEmail) {
+          if (selectedThread) {
+            const latest = selectedThread.messages[selectedThread.messages.length - 1];
+            if (latest) {
+              const toggle = latest.isStarred ? unstarMessage : starMessage;
+              toggle(latest.id).then(() => {
+                handleThreadUpdated({
+                  ...selectedThread,
+                  messages: selectedThread.messages.map(m =>
+                    m.id === latest.id ? { ...m, isStarred: !latest.isStarred } : m
+                  ),
+                });
+              });
+            }
+          } else if (selectedEmail) {
             const toggle = selectedEmail.isStarred ? unstarMessage : starMessage;
             toggle(selectedEmail.id).then(() => {
               handleEmailUpdated({ ...selectedEmail, isStarred: !selectedEmail.isStarred });
@@ -427,7 +562,22 @@ function App() {
           }
         } else if (e.key === 'u') {
           e.preventDefault();
-          if (selectedEmail) {
+          if (selectedThread) {
+            const wasUnread = selectedThread.messages.some(m => m.isUnread);
+            const wantUnread = !wasUnread;
+            modifyThread(selectedThread.id, wantUnread ? ['UNREAD'] : undefined, wantUnread ? undefined : ['UNREAD']).then(() => {
+              handleThreadUpdated({
+                ...selectedThread,
+                messages: selectedThread.messages.map(m => ({
+                  ...m,
+                  isUnread: wantUnread,
+                  labelIds: wantUnread
+                    ? (m.labelIds.includes('UNREAD') ? m.labelIds : [...m.labelIds, 'UNREAD'])
+                    : m.labelIds.filter(l => l !== 'UNREAD'),
+                })),
+              });
+            });
+          } else if (selectedEmail) {
             const wantUnread = !selectedEmail.isUnread;
             const fn = wantUnread ? markAsUnread : markAsRead;
             fn(selectedEmail.id).then(() => {
@@ -441,18 +591,33 @@ function App() {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [view, emails, selectedEmail, localSearchQuery, apiSearchQuery, openEmail, startCompose, goToInbox, handleArchived, handleEmailUpdated, handleTabClick, handleSearchClear]);
+  }, [view, emails, threads, conversationMode, selectedEmail, selectedThread, localSearchQuery, apiSearchQuery, openEmail, openThread, startCompose, goToInbox, handleArchived, handleEmailUpdated, handleThreadArchived, handleThreadUpdated, handleTabClick, handleSearchClear]);
 
   // ── Derived state ──
-  const inboxEmails = labelCache['inbox']?.emails || [];
-  const inboxUnreadCount = inboxEmails.filter(e => e.isUnread).length;
+  const inboxKey = `inbox${conversationMode ? ':t' : ':m'}`;
+  const inboxEntry = labelCache[inboxKey];
+  const inboxEmails = inboxEntry?.emails || [];
+  const inboxThreads = inboxEntry?.threads || [];
+  const inboxUnreadCount = conversationMode
+    ? inboxThreads.filter(t => t.messages.some(m => m.isUnread)).length
+    : inboxEmails.filter(e => e.isUnread).length;
+  const inboxTotalCount = conversationMode ? inboxThreads.length : inboxEmails.length;
   const currentUnreadCount = emails.filter(e => e.isUnread).length;
   const totalBytes = getTotalBytes();
   const isOnline = connectionStatus !== 'offline';
 
+  // tabCounts is keyed on the base label name. Pull counts from whichever
+  // entry matches the current mode so the displayed numbers reflect what
+  // the user actually sees.
   const tabCounts: Record<string, number> = {};
   for (const key of Object.keys(labelCache)) {
-    tabCounts[key] = labelCache[key].emails.length;
+    const isThreadsKey = key.endsWith(':t');
+    const isMessagesKey = key.endsWith(':m');
+    if (!isThreadsKey && !isMessagesKey) continue;
+    if ((isThreadsKey && !conversationMode) || (isMessagesKey && conversationMode)) continue;
+    const baseKey = key.slice(0, -2);
+    const data = labelCache[key];
+    tabCounts[baseKey] = (conversationMode ? data.threads?.length : data.emails?.length) || 0;
   }
 
   // ── Login view ──
@@ -507,7 +672,7 @@ function App() {
           <${Header}
             connectionStatus=${connectionStatus}
             unreadCount=${inboxUnreadCount}
-            totalEmails=${inboxEmails.length}
+            totalEmails=${inboxTotalCount}
             totalBytes=${totalBytes}
             theme=${theme}
             onToggleTheme=${toggleTheme}
@@ -531,6 +696,8 @@ function App() {
             onToggleShowSidebar=${toggleShowSidebar}
             inboxLabelMode=${inboxLabelMode}
             onSetInboxLabelMode=${updateInboxLabelMode}
+            conversationMode=${conversationMode}
+            onToggleConversationMode=${toggleConversationMode}
           />
 
           <${Nav}
@@ -571,10 +738,30 @@ function App() {
             labels=${labels}
             useGmailLabelColors=${useGmailLabelColors}
             inboxLabelMode=${inboxLabelMode}
+            conversationMode=${conversationMode}
+            threads=${threads}
+            onThreadsLoaded=${handleThreadsLoaded}
+            onThreadUpdated=${handleThreadUpdated}
+            onThreadArchived=${handleThreadArchived}
+            onOpenThread=${openThread}
+            userEmail=${getUserEmail()}
           />
         `}
 
-        ${view === 'reader' && selectedEmail && html`
+        ${view === 'reader' && selectedThread && html`
+          <${ThreadReaderView}
+            thread=${selectedThread}
+            onBack=${goToInbox}
+            onReply=${handleReply}
+            onForward=${handleForward}
+            onThreadUpdated=${handleThreadUpdated}
+            onThreadArchived=${handleThreadArchived}
+            labels=${labels}
+            useGmailLabelColors=${useGmailLabelColors}
+          />
+        `}
+
+        ${view === 'reader' && !selectedThread && selectedEmail && html`
           <${ReaderView}
             email=${selectedEmail}
             onBack=${goToInbox}

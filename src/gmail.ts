@@ -1,5 +1,5 @@
 import { getAccessToken } from './auth.js';
-import type { GmailMessage, GmailAttachment, GmailLabel } from './types.js';
+import type { GmailMessage, GmailAttachment, GmailLabel, GmailThread } from './types.js';
 
 const API_BASE = 'https://www.googleapis.com/gmail/v1/users/me';
 
@@ -119,6 +119,121 @@ export async function getMessage(id: string): Promise<GmailMessage> {
   );
   const data = await response.json();
   return parseMessageData(data, true);
+}
+
+// ── Threads ──
+
+interface ListThreadsResult {
+  threads: Array<{ id: string; historyId?: string }>;
+  nextPageToken: string | null;
+  resultSizeEstimate: number;
+}
+
+export async function listThreads(
+  query?: string,
+  pageToken?: string,
+  labelIds?: string[],
+  maxResults = 25
+): Promise<ListThreadsResult> {
+  const params = new URLSearchParams({
+    maxResults: String(maxResults),
+    fields: 'threads(id,historyId),nextPageToken,resultSizeEstimate',
+  });
+
+  if (query) params.set('q', query);
+  if (pageToken) params.set('pageToken', pageToken);
+  if (labelIds?.length) {
+    for (const id of labelIds) params.append('labelIds', id);
+  }
+
+  const response = await gmailFetch(`/threads?${params}`);
+  const data = await response.json();
+
+  return {
+    threads: data.threads || [],
+    nextPageToken: data.nextPageToken || null,
+    resultSizeEstimate: data.resultSizeEstimate || 0,
+  };
+}
+
+async function getThreadMetadata(id: string): Promise<GmailThread> {
+  // Gmail's threads.get returns the thread object with all messages. With
+  // format=metadata we get headers per message but no bodies — enough for
+  // inbox display where we need senders/subjects/dates/labels.
+  const fields = 'id,historyId,messages(id,threadId,labelIds,payload(headers),internalDate,snippet)';
+  const response = await gmailFetch(
+    `/threads/${id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&fields=${encodeURIComponent(fields)}`
+  );
+  const data = await response.json();
+  const messagesRaw = (data.messages || []) as Array<Record<string, unknown>>;
+  return {
+    id: data.id as string,
+    historyId: data.historyId as string | undefined,
+    messages: messagesRaw.map(m => parseMessageData(m)),
+  };
+}
+
+export async function batchGetThreadMetadata(
+  ids: string[],
+  onProgress?: (loaded: number, total: number, threads: GmailThread[]) => void
+): Promise<GmailThread[]> {
+  if (ids.length === 0) return [];
+
+  const results: (GmailThread | null)[] = new Array(ids.length).fill(null);
+  let loadedCount = 0;
+
+  const promises = ids.map((id, index) =>
+    getThreadMetadata(id).then(thread => {
+      results[index] = thread;
+      loadedCount++;
+      if (onProgress) {
+        const loaded = results.filter((t): t is GmailThread => t !== null);
+        onProgress(loadedCount, ids.length, loaded);
+      }
+    })
+  );
+
+  await Promise.all(promises);
+  return results as GmailThread[];
+}
+
+export async function getThread(id: string): Promise<GmailThread> {
+  const fields = 'id,historyId,messages(id,threadId,labelIds,payload,internalDate,sizeEstimate,snippet)';
+  const response = await gmailFetch(
+    `/threads/${id}?format=full&fields=${encodeURIComponent(fields)}`
+  );
+  const data = await response.json();
+  const messagesRaw = (data.messages || []) as Array<Record<string, unknown>>;
+  return {
+    id: data.id as string,
+    historyId: data.historyId as string | undefined,
+    messages: messagesRaw.map(m => parseMessageData(m, true)),
+  };
+}
+
+// Thread-level modify / archive / trash. Applied to every message in the thread.
+export async function modifyThread(
+  id: string,
+  addLabelIds?: string[],
+  removeLabelIds?: string[]
+): Promise<void> {
+  const body: Record<string, string[]> = {};
+  if (addLabelIds?.length) body.addLabelIds = addLabelIds;
+  if (removeLabelIds?.length) body.removeLabelIds = removeLabelIds;
+
+  await gmailFetch(`/threads/${id}/modify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function archiveThread(id: string): Promise<void> {
+  await modifyThread(id, undefined, ['INBOX']);
+}
+
+export async function trashThread(id: string): Promise<void> {
+  await gmailFetch(`/threads/${id}/trash`, { method: 'POST' });
 }
 
 // ── Send message ──
