@@ -44,9 +44,11 @@ interface HeaderProps {
   onToggleFooterEnabled: () => void;
   footerText: string;
   onSetFooterText: (text: string) => void;
+  showSidebar: boolean;
+  onToggleShowSidebar: () => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -165,6 +167,9 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
             <button class="settings-toggle" onClick=${() => setShowSettings(v => !v)} title="settings">settings</button>
             ${showSettings && html`
               <div class="settings-popover">
+                <button class="settings-popover-toggle" onClick=${onToggleShowSidebar}>
+                  <span class="checkbox-glyph">${showSidebar ? '[x]' : '[ ]'}</span> show label sidebar
+                </button>
                 <button class="settings-popover-toggle" onClick=${onToggleShowCategoryTabs}>
                   <span class="checkbox-glyph">${showCategoryTabs ? '[x]' : '[ ]'}</span> show category tabs
                 </button>

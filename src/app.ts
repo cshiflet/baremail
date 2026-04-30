@@ -46,6 +46,7 @@ function App() {
   const [headerCollapsed, setHeaderCollapsed] = useState<boolean>(false);
   const [footerEnabled, setFooterEnabled] = useState<boolean>(false);
   const [footerText, setFooterText] = useState<string>(DEFAULT_FOOTER_TEXT);
+  const [showSidebar, setShowSidebar] = useState<boolean>(true);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -94,6 +95,7 @@ function App() {
         setHeaderCollapsed(await getPref<boolean>('headerCollapsed', false));
         setFooterEnabled(await getPref<boolean>('footerEnabled', false));
         setFooterText(await getPref<string>('footerText', DEFAULT_FOOTER_TEXT));
+        setShowSidebar(await getPref<boolean>('showSidebar', true));
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -163,6 +165,12 @@ function App() {
     setFooterText(text);
     await setPref('footerText', text);
   }, []);
+
+  const toggleShowSidebar = useCallback(async () => {
+    const next = !showSidebar;
+    setShowSidebar(next);
+    await setPref('showSidebar', next);
+  }, [showSidebar]);
 
   // ── Container width ──
   const setContainerWidth = useCallback(async (id: string) => {
@@ -470,7 +478,7 @@ function App() {
       `}
 
       <div class="layout">
-        ${labels.some(l => l.type === 'user') && html`
+        ${showSidebar && labels.some(l => l.type === 'user') && html`
           <button
             class="sidebar-toggle"
             onClick=${() => setSidebarOpen(o => !o)}
@@ -511,6 +519,8 @@ function App() {
             onToggleFooterEnabled=${toggleFooterEnabled}
             footerText=${footerText}
             onSetFooterText=${updateFooterText}
+            showSidebar=${showSidebar}
+            onToggleShowSidebar=${toggleShowSidebar}
           />
 
           <${Nav}
