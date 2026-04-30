@@ -275,7 +275,6 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
 
       <div class="thread-messages">
         ${messages.map((message, idx) => {
-          const sanitized = message.bodyHtml ? sanitizeEmailHtml(message.bodyHtml) : '';
           const isLast = idx === messages.length - 1;
           return html`
             <article class="thread-message ${isLast ? 'thread-message-last' : ''}" key=${message.id}>
@@ -331,9 +330,11 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
                   <${LabelChips} messageLabelIds=${message.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
                 </div>
               `}
-              ${sanitized
-                ? html`<div class="reader-body" dangerouslySetInnerHTML=${{ __html: sanitized }} />`
-                : html`<div class="reader-body">${message.body ? linkifyBody(message.body, linkMode) : '(empty message)'}</div>`
+              ${message.body
+                ? html`<div class="reader-body">${linkifyBody(message.body, linkMode)}</div>`
+                : message.bodyHtml
+                  ? html`<div class="reader-body" dangerouslySetInnerHTML=${{ __html: sanitizeEmailHtml(message.bodyHtml) }} />`
+                  : html`<div class="reader-body">(empty message)</div>`
               }
               ${message.attachments?.length > 0 && html`
                 <div class="thread-message-attachments">
