@@ -45,13 +45,16 @@ interface NavProps {
 export function Nav({ activeLabel, view, searchQuery, apiSearchQuery, onTabClick, onSearchInput, onSearchSubmit, onSearchClear, onCompose, labels, showCategoryTabs }: NavProps) {
   const labelById = new Map(labels.map(l => [l.id, l]));
 
-  // Show the Gmail label's total unread count — including unread items the
-  // app hasn't loaded yet — rather than the count of currently-cached items.
+  // Show the Gmail label's unread / total counts — both numbers come from
+  // the labels API so they include items the app hasn't loaded yet.
   const countLabel = (tabId: string) => {
     const labelId = TAB_TO_LABEL_ID[tabId] || tabId;
     const label = labelById.get(labelId);
-    const count = label?.messagesUnread ?? 0;
-    return count ? ` (${count})` : '';
+    if (!label) return '';
+    const unread = label.messagesUnread ?? 0;
+    const total = label.messagesTotal ?? 0;
+    if (!total) return '';
+    return ` (${unread}/${total})`;
   };
 
   const tabs: Array<{ id: string; label: string; icon: string }> = [
