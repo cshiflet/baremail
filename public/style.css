@@ -665,10 +665,17 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 }
 
 /* In conversation mode each row gets a chevron column at the start so
-   single- and multi-message threads share the same column layout. */
+   single- and multi-message threads share the same column layout. The
+   chevron column is narrow and the indicator is pulled flush against it
+   via negative margin so they read as a single cluster. */
 .inbox-row.inbox-row-thread,
 .inbox-row.inbox-row-message {
-  grid-template-columns: 16px 20px 1fr 90px auto;
+  grid-template-columns: 12px 20px 1fr 90px auto;
+}
+
+.inbox-row-thread > .inbox-indicator,
+.inbox-row-message > .inbox-indicator {
+  margin-left: -8px;
 }
 
 .inbox-row-chevron {
@@ -679,7 +686,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   font-size: 11px;
   cursor: pointer;
   padding: 0;
-  width: 16px;
+  width: 12px;
   height: 16px;
   display: inline-flex;
   align-items: center;
@@ -693,7 +700,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 
 .inbox-row-chevron-spacer {
   display: inline-block;
-  width: 16px;
+  width: 12px;
 }
 
 /* Expanded thread parent: subtle accent so the boundary is visible. */
@@ -2027,7 +2034,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 
   .inbox-row.inbox-row-thread,
   .inbox-row.inbox-row-message {
-    grid-template-columns: 14px 16px 1fr 70px;
+    grid-template-columns: 10px 16px 1fr 70px;
   }
 
   .inbox-actions { display: none; }
