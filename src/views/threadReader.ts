@@ -71,6 +71,18 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
     return map;
   }, [fullThread]);
 
+  // Re-apply deferred-image loads when an HTML body re-renders. If the user
+  // already opted into images for a message, switching plain↔HTML or viewing
+  // the same thread again should not require re-clicking.
+  useEffect(() => {
+    if (!fullThread) return;
+    for (const id of imagesLoadedForIds) {
+      if (showHtmlForIds.has(id)) {
+        loadDeferredImages(bodyRefs.current.get(id) || null);
+      }
+    }
+  }, [showHtmlForIds, imagesLoadedForIds, fullThread]);
+
   // Load the full thread (with bodies). The incoming thread has metadata only.
   useEffect(() => {
     let cancelled = false;
@@ -371,6 +383,11 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
                 const setBodyRef = (el: HTMLDivElement | null) => { bodyRefs.current.set(message.id, el); };
                 if (showHtml && prepared) {
                   return html`
+                    ${prepared.deferredCount > 0 && !imagesAlreadyLoaded && html`
+                      <button class="btn btn-ghost" style="font-size: 11px; margin: 8px 0;" onClick=${() => handleLoadImages(message.id)}>
+                        display ${prepared.deferredCount} external image${prepared.deferredCount === 1 ? '' : 's'}
+                      </button>
+                    `}
                     <div class="reader-body" ref=${setBodyRef} dangerouslySetInnerHTML=${{ __html: prepared.html }} />
                     <div style="display: flex; gap: 8px; margin-top: 8px;">
                       ${prepared.deferredCount > 0 && !imagesAlreadyLoaded && html`

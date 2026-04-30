@@ -222,6 +222,14 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
   // Reset image-loaded state when the email or HTML body changes.
   useEffect(() => { setImagesLoaded(false); }, [displayEmail.id, preparedHtml.html]);
 
+  // Re-apply deferred-image loads after the body re-renders. This handles the
+  // case where the user loaded images, switched to plain text, then back to
+  // HTML — the new DOM has data-baremail-src again, but we already have the
+  // user's consent, so we restore src without re-prompting.
+  useEffect(() => {
+    if (showHtml && imagesLoaded) loadDeferredImages(htmlBodyRef.current);
+  }, [showHtml, imagesLoaded, preparedHtml.html]);
+
   const handleLoadImages = () => {
     loadDeferredImages(htmlBodyRef.current);
     setImagesLoaded(true);
@@ -299,6 +307,11 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
       <div class="reader-divider">${'─'.repeat(80)}</div>
 
       ${showHtml && displayEmail.bodyHtml ? html`
+        ${preparedHtml.deferredCount > 0 && !imagesLoaded && html`
+          <button class="btn btn-ghost" style="font-size: 11px; margin: 8px 0;" onClick=${handleLoadImages}>
+            display ${preparedHtml.deferredCount} external image${preparedHtml.deferredCount === 1 ? '' : 's'}
+          </button>
+        `}
         <div
           class="reader-body"
           ref=${htmlBodyRef}
