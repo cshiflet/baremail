@@ -485,7 +485,7 @@ export function InboxView({
                 class="inbox-row fade-in"
                 onClick=${() => onOpenThread(thread)}
                 style=${{
-                  animationDelay: `${i * 40}ms`,
+                  animationDelay: `${Math.min(i, 8) * 40}ms`,
                   background: selectedIndex === i ? 'var(--bg-highlight)' : undefined,
                 }}
               >
@@ -544,7 +544,7 @@ export function InboxView({
             class="inbox-row fade-in"
             onClick=${() => onOpenEmail(email)}
             style=${{
-              animationDelay: `${i * 40}ms`,
+              animationDelay: `${Math.min(i, 8) * 40}ms`,
               background: selectedIndex === i ? 'var(--bg-highlight)' : undefined,
             }}
           >
