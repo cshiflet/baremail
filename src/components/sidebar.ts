@@ -103,9 +103,10 @@ export function Sidebar({ labels, activeLabel, useGmailLabelColors, onLabelClick
     const isCollapsed = effectiveCollapsed.has(node.fullPath);
     const labelId = node.label?.id;
     const isActive = labelId !== undefined && labelId === activeLabel;
-    const useColor = useGmailLabelColors && node.label?.color;
+    const accent = node.label?.color?.backgroundColor || node.label?.color?.textColor;
+    const useColor = useGmailLabelColors && accent;
     const labelStyle = useColor
-      ? `color: ${node.label!.color!.textColor || 'inherit'}; background: ${node.label!.color!.backgroundColor || 'transparent'};`
+      ? `color: ${accent};`
       : '';
     const indentPx = depth * 12;
 

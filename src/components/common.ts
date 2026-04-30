@@ -6,8 +6,9 @@ import type { ConnectionStatus, GmailLabel } from '../types.js';
 const html = htm.bind(h);
 
 export function LabelChip({ label, useColor }: { label: GmailLabel; useColor: boolean }) {
-  const style = useColor && label.color
-    ? `color: ${label.color.textColor || 'inherit'}; background: ${label.color.backgroundColor || 'transparent'}; border-color: transparent;`
+  const accent = label.color?.backgroundColor || label.color?.textColor;
+  const style = useColor && accent
+    ? `color: ${accent}; border-color: ${accent}; background: transparent;`
     : '';
   return html`<span class="label-chip" style=${style} title=${label.name}>${label.name}</span>`;
 }
