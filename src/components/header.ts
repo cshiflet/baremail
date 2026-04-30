@@ -46,9 +46,11 @@ interface HeaderProps {
   onSetFooterText: (text: string) => void;
   showSidebar: boolean;
   onToggleShowSidebar: () => void;
+  inboxLabelMode: 'hidden' | 'hover' | 'always';
+  onSetInboxLabelMode: (mode: 'hidden' | 'hover' | 'always') => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar, inboxLabelMode, onSetInboxLabelMode }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -188,6 +190,21 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
                     rows=${4}
                   />
                 `}
+                <div class="settings-popover-section">
+                  <div class="settings-popover-section-label">inbox row labels</div>
+                  <div class="settings-popover-radios">
+                    ${(['hidden', 'hover', 'always'] as const).map(mode => html`
+                      <button
+                        key=${mode}
+                        class="settings-popover-radio ${inboxLabelMode === mode ? 'active' : ''}"
+                        onClick=${() => onSetInboxLabelMode(mode)}
+                      >
+                        <span class="radio-glyph">${inboxLabelMode === mode ? '(•)' : '( )'}</span>
+                        ${mode === 'hover' ? 'on hover' : mode}
+                      </button>
+                    `)}
+                  </div>
+                </div>
               </div>
             `}
           </span>

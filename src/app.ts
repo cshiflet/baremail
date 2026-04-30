@@ -47,6 +47,7 @@ function App() {
   const [footerEnabled, setFooterEnabled] = useState<boolean>(false);
   const [footerText, setFooterText] = useState<string>(DEFAULT_FOOTER_TEXT);
   const [showSidebar, setShowSidebar] = useState<boolean>(true);
+  const [inboxLabelMode, setInboxLabelMode] = useState<'hidden' | 'hover' | 'always'>('hover');
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -96,6 +97,8 @@ function App() {
         setFooterEnabled(await getPref<boolean>('footerEnabled', false));
         setFooterText(await getPref<string>('footerText', DEFAULT_FOOTER_TEXT));
         setShowSidebar(await getPref<boolean>('showSidebar', true));
+        const savedMode = await getPref<string>('inboxLabelMode', 'hover');
+        setInboxLabelMode(savedMode === 'hidden' || savedMode === 'always' ? savedMode : 'hover');
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -171,6 +174,11 @@ function App() {
     setShowSidebar(next);
     await setPref('showSidebar', next);
   }, [showSidebar]);
+
+  const updateInboxLabelMode = useCallback(async (mode: 'hidden' | 'hover' | 'always') => {
+    setInboxLabelMode(mode);
+    await setPref('inboxLabelMode', mode);
+  }, []);
 
   // ── Container width ──
   const setContainerWidth = useCallback(async (id: string) => {
@@ -521,6 +529,8 @@ function App() {
             onSetFooterText=${updateFooterText}
             showSidebar=${showSidebar}
             onToggleShowSidebar=${toggleShowSidebar}
+            inboxLabelMode=${inboxLabelMode}
+            onSetInboxLabelMode=${updateInboxLabelMode}
           />
 
           <${Nav}
@@ -560,6 +570,7 @@ function App() {
             inboxZeroBear=${html`<${InboxZeroBear} />`}
             labels=${labels}
             useGmailLabelColors=${useGmailLabelColors}
+            inboxLabelMode=${inboxLabelMode}
           />
         `}
 

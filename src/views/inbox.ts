@@ -54,6 +54,7 @@ interface InboxProps {
   inboxZeroBear: any;
   labels: GmailLabel[];
   useGmailLabelColors: boolean;
+  inboxLabelMode: 'hidden' | 'hover' | 'always';
 }
 
 export function InboxView({
@@ -76,6 +77,7 @@ export function InboxView({
   inboxZeroBear,
   labels,
   useGmailLabelColors,
+  inboxLabelMode,
 }: InboxProps) {
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -327,9 +329,11 @@ export function InboxView({
                 ? highlightMatch(email.subject, searchHighlight)
                 : email.subject}
             </span>
-            <div class="inbox-row-labels">
-              <${LabelChips} messageLabelIds=${email.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
-            </div>
+            ${inboxLabelMode !== 'hidden' && html`
+              <div class="inbox-row-labels ${inboxLabelMode === 'always' ? 'always' : ''}">
+                <${LabelChips} messageLabelIds=${email.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
+              </div>
+            `}
           </div>
 
           <span class="inbox-date">

@@ -314,6 +314,10 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   display: flex;
 }
 
+.inbox-row .inbox-row-labels.always:has(.label-chip) {
+  display: flex;
+}
+
 /* ── Labels popover (reader toolbar) ── */
 .labels-control {
   position: relative;
@@ -1615,6 +1619,54 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 .settings-popover-footer-edit:focus {
   outline: 1px solid var(--amber-dim);
   outline-offset: -1px;
+}
+
+.settings-popover-section {
+  margin: 6px 0 4px;
+}
+
+.settings-popover-section-label {
+  color: var(--dim-text);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.settings-popover-radios {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-popover-radio {
+  background: transparent;
+  border: none;
+  color: var(--dim-text);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 8px;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s;
+}
+
+.settings-popover-radio:hover {
+  color: var(--amber);
+}
+
+.settings-popover-radio.active {
+  color: var(--amber);
+}
+
+.settings-popover-radio .radio-glyph {
+  color: var(--border);
+}
+
+.settings-popover-radio.active .radio-glyph,
+.settings-popover-radio:hover .radio-glyph {
+  color: var(--amber-dim);
 }
 
 /* ── Width control ── */
