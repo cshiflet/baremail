@@ -40,9 +40,13 @@ interface HeaderProps {
   onToggleUseGmailLabelColors: () => void;
   headerCollapsed: boolean;
   onToggleHeaderCollapsed: () => void;
+  footerEnabled: boolean;
+  onToggleFooterEnabled: () => void;
+  footerText: string;
+  onSetFooterText: (text: string) => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -110,6 +114,18 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
               <button class="account-popover-toggle" onClick=${onToggleUseGmailLabelColors}>
                 <span class="checkbox-glyph">${useGmailLabelColors ? '[x]' : '[ ]'}</span> use gmail label colors
               </button>
+              <button class="account-popover-toggle" onClick=${onToggleFooterEnabled}>
+                <span class="checkbox-glyph">${footerEnabled ? '[x]' : '[ ]'}</span> append footer to sent messages
+              </button>
+              ${footerEnabled && html`
+                <textarea
+                  class="account-popover-footer-edit"
+                  value=${footerText}
+                  onInput=${(e: Event) => onSetFooterText((e.target as HTMLTextAreaElement).value)}
+                  placeholder="footer text..."
+                  rows=${4}
+                />
+              `}
               <div class="account-popover-divider" />
               <button class="account-popover-logout" onClick=${onLogout}>
                 ⏻ sign out

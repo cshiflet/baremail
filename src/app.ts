@@ -23,6 +23,8 @@ const html = htm.bind(h);
 
 const EMPTY_COMPOSE: ComposeData = { to: '', cc: '', bcc: '', subject: '', body: '' };
 
+const DEFAULT_FOOTER_TEXT = '\n\nʕ·ᴥ·ʔ sent with BAREMAIL — email for bad wifi — baremail.app';
+
 function App() {
   const [view, setView] = useState<View>('login');
   const [selectedEmail, setSelectedEmail] = useState<GmailMessage | null>(null);
@@ -42,6 +44,8 @@ function App() {
   const [useGmailLabelColors, setUseGmailLabelColors] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [headerCollapsed, setHeaderCollapsed] = useState<boolean>(false);
+  const [footerEnabled, setFooterEnabled] = useState<boolean>(false);
+  const [footerText, setFooterText] = useState<string>(DEFAULT_FOOTER_TEXT);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -88,6 +92,8 @@ function App() {
         setShowCategoryTabs(await getPref<boolean>('showCategoryTabs', false));
         setUseGmailLabelColors(await getPref<boolean>('useGmailLabelColors', false));
         setHeaderCollapsed(await getPref<boolean>('headerCollapsed', false));
+        setFooterEnabled(await getPref<boolean>('footerEnabled', false));
+        setFooterText(await getPref<string>('footerText', DEFAULT_FOOTER_TEXT));
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -146,6 +152,17 @@ function App() {
     setHeaderCollapsed(next);
     await setPref('headerCollapsed', next);
   }, [headerCollapsed]);
+
+  const toggleFooterEnabled = useCallback(async () => {
+    const next = !footerEnabled;
+    setFooterEnabled(next);
+    await setPref('footerEnabled', next);
+  }, [footerEnabled]);
+
+  const updateFooterText = useCallback(async (text: string) => {
+    setFooterText(text);
+    await setPref('footerText', text);
+  }, []);
 
   // ── Container width ──
   const setContainerWidth = useCallback(async (id: string) => {
@@ -490,6 +507,10 @@ function App() {
             onToggleUseGmailLabelColors=${toggleUseGmailLabelColors}
             headerCollapsed=${headerCollapsed}
             onToggleHeaderCollapsed=${toggleHeaderCollapsed}
+            footerEnabled=${footerEnabled}
+            onToggleFooterEnabled=${toggleFooterEnabled}
+            footerText=${footerText}
+            onSetFooterText=${updateFooterText}
           />
 
           <${Nav}
@@ -551,6 +572,8 @@ function App() {
             onSent=${handleSent}
             onDiscard=${goToInbox}
             isOnline=${isOnline}
+            footerEnabled=${footerEnabled}
+            footerText=${footerText}
           />
         `}
 

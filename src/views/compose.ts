@@ -4,21 +4,21 @@ import htm from 'htm';
 import { TypewriterText, formatBytes } from '../components/common.js';
 import { sendMessage } from '../gmail.js';
 import type { SendAttachment } from '../gmail.js';
-import { queueOutbox, getPref, setPref } from '../cache.js';
+import { queueOutbox } from '../cache.js';
 import type { ComposeData, OutboxMessage } from '../types.js';
 
 const html = htm.bind(h);
-
-const BAREMAIL_FOOTER = '\n\nʕ·ᴥ·ʔ sent with BAREMAIL — email for bad wifi — baremail.app';
 
 interface ComposeProps {
   data: ComposeData;
   onSent: () => void;
   onDiscard: () => void;
   isOnline: boolean;
+  footerEnabled: boolean;
+  footerText: string;
 }
 
-export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps) {
+export function ComposeView({ data, onSent, onDiscard, isOnline, footerEnabled, footerText }: ComposeProps) {
   const [to, setTo] = useState(data.to);
   const [cc, setCc] = useState(data.cc || '');
   const [bcc, setBcc] = useState(data.bcc || '');
@@ -77,9 +77,7 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
     setSending(true);
     setError('');
 
-    const footerEnabled = await getPref('footerEnabled', true);
-    const sentCount = await getPref<number>('sentCount', 0);
-    const finalBody = footerEnabled ? body + BAREMAIL_FOOTER : body;
+    const finalBody = footerEnabled ? body + footerText : body;
 
     if (!isOnline) {
       const outboxMsg: OutboxMessage = {
@@ -117,13 +115,6 @@ export function ComposeView({ data, onSent, onDiscard, isOnline }: ComposeProps)
         inReplyTo: data.inReplyTo,
         attachments: sendAttachments.length > 0 ? sendAttachments : undefined,
       });
-
-      await setPref('sentCount', sentCount + 1);
-
-      if (sentCount + 1 === 10 && footerEnabled) {
-        // The prompt will be shown separately in the app
-        await setPref('showFooterPrompt', true);
-      }
 
       setSending(false);
       setSent(true);

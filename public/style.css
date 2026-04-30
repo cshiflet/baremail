@@ -1494,7 +1494,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   border: 1px solid var(--border);
   padding: 10px 14px;
   z-index: 20;
-  min-width: 200px;
+  min-width: 280px;
   animation: fadeSlideIn 0.15s ease both;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
@@ -1561,6 +1561,28 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 .account-popover-divider {
   border-top: 1px solid var(--border);
   margin: 6px 0;
+}
+
+.account-popover-footer-edit {
+  display: block;
+  width: 100%;
+  margin: 4px 0 4px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--mid-text);
+  font-family: var(--font);
+  font-size: 11px;
+  resize: vertical;
+  min-height: 60px;
+  max-height: 200px;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+}
+
+.account-popover-footer-edit:focus {
+  outline: 1px solid var(--amber-dim);
+  outline-offset: -1px;
 }
 
 /* ── Width control ── */
