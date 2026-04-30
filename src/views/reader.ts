@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import htm from 'htm';
-import { Loading, formatFullDate, formatBytes, LabelChips, linkifyBody, sanitizeEmailHtml } from '../components/common.js';
+import { Loading, formatFullDate, formatBytes, LabelChips, linkifyBody, prepareEmailHtml, loadDeferredImages } from '../components/common.js';
 import type { LinkMode } from '../components/common.js';
 import {
   getMessage,
@@ -36,7 +36,9 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
   const [showHtml, setShowHtml] = useState(false);
   const [linkMode, setLinkMode] = useState<LinkMode>('labeled');
   const [showLabels, setShowLabels] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
   const labelsPopoverRef = useRef<HTMLSpanElement>(null);
+  const htmlBodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -212,10 +214,18 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
   const displayEmail = fullEmail || email;
   const body = displayEmail.body;
 
-  const sanitizedHtml = useMemo(() => {
-    if (!displayEmail.bodyHtml) return '';
-    return sanitizeEmailHtml(displayEmail.bodyHtml);
+  const preparedHtml = useMemo(() => {
+    if (!displayEmail.bodyHtml) return { html: '', deferredCount: 0 };
+    return prepareEmailHtml(displayEmail.bodyHtml);
   }, [displayEmail.bodyHtml]);
+
+  // Reset image-loaded state when the email or HTML body changes.
+  useEffect(() => { setImagesLoaded(false); }, [displayEmail.id, preparedHtml.html]);
+
+  const handleLoadImages = () => {
+    loadDeferredImages(htmlBodyRef.current);
+    setImagesLoaded(true);
+  };
 
   if (loading) {
     return html`<${Loading} message="loading message..." />`;
@@ -291,11 +301,19 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
       ${showHtml && displayEmail.bodyHtml ? html`
         <div
           class="reader-body"
-          dangerouslySetInnerHTML=${{ __html: sanitizedHtml }}
+          ref=${htmlBodyRef}
+          dangerouslySetInnerHTML=${{ __html: preparedHtml.html }}
         />
-        <button class="btn btn-ghost" style="margin-top: 8px; font-size: 11px;" onClick=${() => setShowHtml(false)}>
-          ← plain text
-        </button>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          ${preparedHtml.deferredCount > 0 && !imagesLoaded && html`
+            <button class="btn btn-ghost" style="font-size: 11px;" onClick=${handleLoadImages}>
+              display ${preparedHtml.deferredCount} external image${preparedHtml.deferredCount === 1 ? '' : 's'}
+            </button>
+          `}
+          <button class="btn btn-ghost" style="font-size: 11px;" onClick=${() => setShowHtml(false)}>
+            ← plain text
+          </button>
+        </div>
       ` : html`
         <div class="reader-body">
           ${body ? linkifyBody(body, linkMode) : '(empty message)'}

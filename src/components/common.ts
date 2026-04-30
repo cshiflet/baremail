@@ -86,11 +86,41 @@ export function linkifyBody(text: string, mode: LinkMode): any[] {
   return result;
 }
 
-export function sanitizeEmailHtml(htmlInput: string): string {
-  return DOMPurify.sanitize(htmlInput, {
+export interface PreparedEmailHtml {
+  html: string;
+  deferredCount: number;
+}
+
+// Sanitize HTML and defer external <img> loading. The src on each external
+// image is moved to data-baremail-src so the browser doesn't fetch it; a
+// later call to loadDeferredImages restores the src after explicit user
+// consent. Inline data: and cid: image URLs are left alone.
+export function prepareEmailHtml(htmlInput: string): PreparedEmailHtml {
+  const sanitized = DOMPurify.sanitize(htmlInput, {
     FORBID_TAGS: ['style', 'form'],
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
     ALLOW_DATA_ATTR: false,
+  });
+  const doc = new DOMParser().parseFromString(sanitized, 'text/html');
+  let deferredCount = 0;
+  doc.querySelectorAll('img[src]').forEach(img => {
+    const src = img.getAttribute('src') || '';
+    if (!src || src.startsWith('data:') || src.startsWith('cid:')) return;
+    img.setAttribute('data-baremail-src', src);
+    img.removeAttribute('src');
+    deferredCount++;
+  });
+  return { html: doc.body.innerHTML, deferredCount };
+}
+
+export function loadDeferredImages(root: Element | null): void {
+  if (!root) return;
+  root.querySelectorAll('img[data-baremail-src]').forEach(img => {
+    const src = (img as HTMLImageElement).dataset.baremailSrc;
+    if (src) {
+      (img as HTMLImageElement).src = src;
+      img.removeAttribute('data-baremail-src');
+    }
   });
 }
 

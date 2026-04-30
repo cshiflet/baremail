@@ -2,8 +2,9 @@ import { h } from 'preact';
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import htm from 'htm';
 import {
-  Loading, formatFullDate, formatBytes, LabelChips, linkifyBody, sanitizeEmailHtml,
+  Loading, formatFullDate, formatBytes, LabelChips, linkifyBody, prepareEmailHtml, loadDeferredImages,
 } from '../components/common.js';
+import type { PreparedEmailHtml } from '../components/common.js';
 import type { LinkMode } from '../components/common.js';
 import {
   getThread,
@@ -38,7 +39,9 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
   const [linkMode, setLinkMode] = useState<LinkMode>('labeled');
   const [showLabelsForId, setShowLabelsForId] = useState<string | null>(null);
   const [showHtmlForIds, setShowHtmlForIds] = useState<Set<string>>(new Set());
+  const [imagesLoadedForIds, setImagesLoadedForIds] = useState<Set<string>>(new Set());
   const labelsPopoverRefs = useRef<Map<string, HTMLSpanElement | null>>(new Map());
+  const bodyRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
   const toggleHtmlForId = (id: string) => {
     setShowHtmlForIds(prev => {
@@ -49,6 +52,25 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
     });
   };
 
+  const handleLoadImages = (id: string) => {
+    loadDeferredImages(bodyRefs.current.get(id) || null);
+    setImagesLoadedForIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+
+  // Pre-sanitize each message's HTML body once per thread so toggling the
+  // per-message HTML view doesn't trigger a re-sanitize on every render.
+  const preparedHtmls = useMemo(() => {
+    const map = new Map<string, PreparedEmailHtml>();
+    for (const m of fullThread?.messages || []) {
+      if (m.bodyHtml) map.set(m.id, prepareEmailHtml(m.bodyHtml));
+    }
+    return map;
+  }, [fullThread]);
+
   // Load the full thread (with bodies). The incoming thread has metadata only.
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +78,7 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
     setLoading(true);
     setShowLabelsForId(null);
     setShowHtmlForIds(new Set());
+    setImagesLoadedForIds(new Set());
 
     (async () => {
       try {
@@ -343,12 +366,22 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
               `}
               ${(() => {
                 const showHtml = showHtmlForIds.has(message.id) && !!message.bodyHtml;
-                if (showHtml) {
+                const prepared = preparedHtmls.get(message.id);
+                const imagesAlreadyLoaded = imagesLoadedForIds.has(message.id);
+                const setBodyRef = (el: HTMLDivElement | null) => { bodyRefs.current.set(message.id, el); };
+                if (showHtml && prepared) {
                   return html`
-                    <div class="reader-body" dangerouslySetInnerHTML=${{ __html: sanitizeEmailHtml(message.bodyHtml) }} />
-                    <button class="btn btn-ghost" style="margin-top: 8px; font-size: 11px;" onClick=${() => toggleHtmlForId(message.id)}>
-                      ← plain text
-                    </button>
+                    <div class="reader-body" ref=${setBodyRef} dangerouslySetInnerHTML=${{ __html: prepared.html }} />
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                      ${prepared.deferredCount > 0 && !imagesAlreadyLoaded && html`
+                        <button class="btn btn-ghost" style="font-size: 11px;" onClick=${() => handleLoadImages(message.id)}>
+                          display ${prepared.deferredCount} external image${prepared.deferredCount === 1 ? '' : 's'}
+                        </button>
+                      `}
+                      <button class="btn btn-ghost" style="font-size: 11px;" onClick=${() => toggleHtmlForId(message.id)}>
+                        ← plain text
+                      </button>
+                    </div>
                   `;
                 }
                 if (message.body) {
@@ -361,9 +394,14 @@ export function ThreadReaderView({ thread: incomingThread, onBack, onReply, onFo
                     `}
                   `;
                 }
-                if (message.bodyHtml) {
+                if (message.bodyHtml && prepared) {
                   return html`
-                    <div class="reader-body" dangerouslySetInnerHTML=${{ __html: sanitizeEmailHtml(message.bodyHtml) }} />
+                    <div class="reader-body" ref=${setBodyRef} dangerouslySetInnerHTML=${{ __html: prepared.html }} />
+                    ${prepared.deferredCount > 0 && !imagesAlreadyLoaded && html`
+                      <button class="btn btn-ghost" style="margin-top: 8px; font-size: 11px;" onClick=${() => handleLoadImages(message.id)}>
+                        display ${prepared.deferredCount} external image${prepared.deferredCount === 1 ? '' : 's'}
+                      </button>
+                    `}
                   `;
                 }
                 return html`<div class="reader-body">(empty message)</div>`;
