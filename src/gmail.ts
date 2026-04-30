@@ -13,10 +13,18 @@ export function getTotalBytes(): number {
 
 // Max retries for transient 429 / 5xx responses. Backoff is exponential
 // starting at FETCH_RETRY_INITIAL_DELAY_MS (250, 500, 1000, 2000ms by
-// default). Gmail's per-user concurrency window typically clears within a
-// few hundred ms, so the first retry usually succeeds.
+// default), with ±25% jitter so several sub-requests retrying in parallel
+// don't synchronize and keep hitting Gmail's concurrent-request limit
+// together. Gmail's official guidance says ≥1s initial delay; we run
+// shorter because empirically the concurrency window clears within a few
+// hundred ms, but the constant is easy to bump if 429s reappear.
 const FETCH_RETRY_LIMIT = 4;
 const FETCH_RETRY_INITIAL_DELAY_MS = 250;
+
+function backoffDelayMs(attempt: number): number {
+  const base = FETCH_RETRY_INITIAL_DELAY_MS * Math.pow(2, attempt);
+  return Math.round(base * (0.75 + Math.random() * 0.5));
+}
 
 async function gmailFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const token = await getAccessToken();
@@ -54,8 +62,7 @@ async function gmailFetch(path: string, options: RequestInit = {}): Promise<Resp
 
     // Drain body so the connection can be reused; ignore any errors.
     try { await response.text(); } catch { /* ignore */ }
-    const delay = FETCH_RETRY_INITIAL_DELAY_MS * Math.pow(2, attempt);
-    await new Promise(r => setTimeout(r, delay));
+    await new Promise(r => setTimeout(r, backoffDelayMs(attempt)));
   }
   // Unreachable in practice, but satisfies the type checker.
   throw new Error(`Gmail API error ${lastResponse?.status ?? 0}: max retries exceeded`);
@@ -106,8 +113,7 @@ export async function batchGmail<T = unknown>(
       }
     }
     if (failedIndices.length === 0) break;
-    const delay = FETCH_RETRY_INITIAL_DELAY_MS * Math.pow(2, attempt);
-    await new Promise(r => setTimeout(r, delay));
+    await new Promise(r => setTimeout(r, backoffDelayMs(attempt)));
     const retryRequests = failedIndices.map(i => requests[i]);
     const retryResults = await sendOneBatch<T>(retryRequests);
     for (let i = 0; i < failedIndices.length; i++) {
@@ -166,8 +172,7 @@ async function sendOneBatch<T>(requests: BatchSubRequest[]): Promise<BatchSubRes
       break;
     }
     try { await response.text(); } catch { /* ignore */ }
-    const delay = FETCH_RETRY_INITIAL_DELAY_MS * Math.pow(2, attempt);
-    await new Promise(r => setTimeout(r, delay));
+    await new Promise(r => setTimeout(r, backoffDelayMs(attempt)));
   }
 
   if (!response || !response.ok) {
