@@ -1494,7 +1494,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   border: 1px solid var(--border);
   padding: 10px 14px;
   z-index: 20;
-  min-width: 280px;
+  min-width: 200px;
   animation: fadeSlideIn 0.15s ease both;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
@@ -1529,7 +1529,45 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   color: var(--red);
 }
 
-.account-popover-toggle {
+/* ── Settings popover ── */
+.settings-control {
+  position: relative;
+  display: inline-block;
+}
+
+.settings-toggle {
+  background: transparent;
+  border: none;
+  color: var(--dim-text);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s;
+}
+
+.settings-toggle:hover {
+  color: var(--amber-dim);
+}
+
+.settings-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  z-index: 20;
+  min-width: 280px;
+  animation: fadeSlideIn 0.15s ease both;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .settings-popover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.settings-popover-toggle {
   background: transparent;
   border: none;
   color: var(--dim-text);
@@ -1545,25 +1583,19 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   gap: 8px;
 }
 
-.account-popover-toggle:hover {
+.settings-popover-toggle:hover {
   color: var(--amber);
 }
 
-.account-popover-toggle .checkbox-glyph {
+.settings-popover-toggle .checkbox-glyph {
   color: var(--border);
-  font-family: var(--font);
 }
 
-.account-popover-toggle:hover .checkbox-glyph {
+.settings-popover-toggle:hover .checkbox-glyph {
   color: var(--amber-dim);
 }
 
-.account-popover-divider {
-  border-top: 1px solid var(--border);
-  margin: 6px 0;
-}
-
-.account-popover-footer-edit {
+.settings-popover-footer-edit {
   display: block;
   width: 100%;
   margin: 4px 0 4px;
@@ -1580,7 +1612,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   white-space: pre-wrap;
 }
 
-.account-popover-footer-edit:focus {
+.settings-popover-footer-edit:focus {
   outline: 1px solid var(--amber-dim);
   outline-offset: -1px;
 }

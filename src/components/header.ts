@@ -49,8 +49,10 @@ interface HeaderProps {
 export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const widthPopoverRef = useRef<HTMLDivElement>(null);
+  const settingsPopoverRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!showAccount) return;
@@ -73,6 +75,17 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [showWidth]);
+
+  useEffect(() => {
+    if (!showSettings) return;
+    const close = (e: MouseEvent) => {
+      if (settingsPopoverRef.current && !settingsPopoverRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showSettings]);
 
   const currentPreset = WIDTH_PRESETS.find(p => p.id === containerWidth) ?? WIDTH_PRESETS.find(p => p.id === DEFAULT_WIDTH_ID)!;
 
@@ -108,25 +121,6 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
               ${userEmail && html`
                 <div class="account-popover-email">${userEmail}</div>
               `}
-              <button class="account-popover-toggle" onClick=${onToggleShowCategoryTabs}>
-                <span class="checkbox-glyph">${showCategoryTabs ? '[x]' : '[ ]'}</span> show category tabs
-              </button>
-              <button class="account-popover-toggle" onClick=${onToggleUseGmailLabelColors}>
-                <span class="checkbox-glyph">${useGmailLabelColors ? '[x]' : '[ ]'}</span> use gmail label colors
-              </button>
-              <button class="account-popover-toggle" onClick=${onToggleFooterEnabled}>
-                <span class="checkbox-glyph">${footerEnabled ? '[x]' : '[ ]'}</span> append footer to sent messages
-              </button>
-              ${footerEnabled && html`
-                <textarea
-                  class="account-popover-footer-edit"
-                  value=${footerText}
-                  onInput=${(e: Event) => onSetFooterText((e.target as HTMLTextAreaElement).value)}
-                  placeholder="footer text..."
-                  rows=${4}
-                />
-              `}
-              <div class="account-popover-divider" />
               <button class="account-popover-logout" onClick=${onLogout}>
                 ⏻ sign out
               </button>
@@ -166,6 +160,32 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
           <button class="theme-toggle" onClick=${onToggleTheme}>
             ${theme === 'dark' ? '◑ light' : '◐ dark'}
           </button>
+          ${' · '}
+          <span class="settings-control" ref=${settingsPopoverRef}>
+            <button class="settings-toggle" onClick=${() => setShowSettings(v => !v)} title="settings">settings</button>
+            ${showSettings && html`
+              <div class="settings-popover">
+                <button class="settings-popover-toggle" onClick=${onToggleShowCategoryTabs}>
+                  <span class="checkbox-glyph">${showCategoryTabs ? '[x]' : '[ ]'}</span> show category tabs
+                </button>
+                <button class="settings-popover-toggle" onClick=${onToggleUseGmailLabelColors}>
+                  <span class="checkbox-glyph">${useGmailLabelColors ? '[x]' : '[ ]'}</span> use gmail label colors
+                </button>
+                <button class="settings-popover-toggle" onClick=${onToggleFooterEnabled}>
+                  <span class="checkbox-glyph">${footerEnabled ? '[x]' : '[ ]'}</span> append footer to sent messages
+                </button>
+                ${footerEnabled && html`
+                  <textarea
+                    class="settings-popover-footer-edit"
+                    value=${footerText}
+                    onInput=${(e: Event) => onSetFooterText((e.target as HTMLTextAreaElement).value)}
+                    placeholder="footer text..."
+                    rows=${4}
+                  />
+                `}
+              </div>
+            `}
+          </span>
           ${' · '}↓ ${formatBytes(totalBytes)} api
           <button
             class="header-collapse-btn"
