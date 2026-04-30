@@ -52,6 +52,7 @@ function App() {
   const [inboxLabelMode, setInboxLabelMode] = useState<'hidden' | 'hover' | 'always'>('hover');
   const [conversationMode, setConversationMode] = useState<boolean>(true);
   const [inboxScrollMode, setInboxScrollMode] = useState<'manual' | 'auto'>('manual');
+  const [showInboxRowActions, setShowInboxRowActions] = useState<boolean>(false);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -113,6 +114,7 @@ function App() {
         setConversationMode(await getPref<boolean>('conversationMode', true));
         const savedScrollMode = await getPref<string>('inboxScrollMode', 'manual');
         setInboxScrollMode(savedScrollMode === 'auto' ? 'auto' : 'manual');
+        setShowInboxRowActions(await getPref<boolean>('showInboxRowActions', false));
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -204,6 +206,12 @@ function App() {
     setInboxScrollMode(mode);
     await setPref('inboxScrollMode', mode);
   }, []);
+
+  const toggleShowInboxRowActions = useCallback(async () => {
+    const next = !showInboxRowActions;
+    setShowInboxRowActions(next);
+    await setPref('showInboxRowActions', next);
+  }, [showInboxRowActions]);
 
   // ── Container width ──
   const setContainerWidth = useCallback(async (id: string) => {
@@ -708,6 +716,8 @@ function App() {
             onToggleConversationMode=${toggleConversationMode}
             inboxScrollMode=${inboxScrollMode}
             onSetInboxScrollMode=${updateInboxScrollMode}
+            showInboxRowActions=${showInboxRowActions}
+            onToggleShowInboxRowActions=${toggleShowInboxRowActions}
           />
 
           <${Nav}
@@ -756,6 +766,7 @@ function App() {
             onOpenThread=${openThread}
             userEmail=${getUserEmail()}
             inboxScrollMode=${inboxScrollMode}
+            showRowActions=${showInboxRowActions}
           />
         `}
 

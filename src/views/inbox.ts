@@ -127,6 +127,7 @@ interface InboxProps {
   conversationMode: boolean;
   userEmail: string | null;
   inboxScrollMode: 'manual' | 'auto';
+  showRowActions: boolean;
 }
 
 export function InboxView({
@@ -158,6 +159,7 @@ export function InboxView({
   conversationMode,
   userEmail,
   inboxScrollMode,
+  showRowActions,
 }: InboxProps) {
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -521,20 +523,22 @@ export function InboxView({
                   ${formatDate(display.date)}
                 </span>
 
-                <span class="inbox-actions">
-                  <button
-                    class="btn btn-secondary btn-sm"
-                    onClick=${(e: Event) => handleToggleUnreadThread(e, thread)}
-                  >
-                    ${display.isUnread ? 'mark read' : 'mark unread'}
-                  </button>
-                  <button
-                    class="btn btn-secondary btn-sm"
-                    onClick=${(e: Event) => handleArchiveThread(e, thread)}
-                  >
-                    archive
-                  </button>
-                </span>
+                ${showRowActions && html`
+                  <span class="inbox-actions">
+                    <button
+                      class="btn btn-secondary btn-sm"
+                      onClick=${(e: Event) => handleToggleUnreadThread(e, thread)}
+                    >
+                      ${display.isUnread ? 'mark read' : 'mark unread'}
+                    </button>
+                    <button
+                      class="btn btn-secondary btn-sm"
+                      onClick=${(e: Event) => handleArchiveThread(e, thread)}
+                    >
+                      archive
+                    </button>
+                  </span>
+                `}
               </div>
             `;
           })
@@ -579,20 +583,22 @@ export function InboxView({
               ${formatDate(email.internalDate)}
             </span>
 
-            <span class="inbox-actions">
-              <button
-                class="btn btn-secondary btn-sm"
-                onClick=${(e: Event) => handleToggleUnreadEmail(e, email)}
-              >
-                ${email.isUnread ? 'mark read' : 'mark unread'}
-              </button>
-              <button
-                class="btn btn-secondary btn-sm"
-                onClick=${(e: Event) => handleArchiveEmail(e, email)}
-              >
-                archive
-              </button>
-            </span>
+            ${showRowActions && html`
+              <span class="inbox-actions">
+                <button
+                  class="btn btn-secondary btn-sm"
+                  onClick=${(e: Event) => handleToggleUnreadEmail(e, email)}
+                >
+                  ${email.isUnread ? 'mark read' : 'mark unread'}
+                </button>
+                <button
+                  class="btn btn-secondary btn-sm"
+                  onClick=${(e: Event) => handleArchiveEmail(e, email)}
+                >
+                  archive
+                </button>
+              </span>
+            `}
           </div>
         `)
       }

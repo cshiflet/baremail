@@ -52,9 +52,11 @@ interface HeaderProps {
   onToggleConversationMode: () => void;
   inboxScrollMode: 'manual' | 'auto';
   onSetInboxScrollMode: (mode: 'manual' | 'auto') => void;
+  showInboxRowActions: boolean;
+  onToggleShowInboxRowActions: () => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar, inboxLabelMode, onSetInboxLabelMode, conversationMode, onToggleConversationMode, inboxScrollMode, onSetInboxScrollMode }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar, inboxLabelMode, onSetInboxLabelMode, conversationMode, onToggleConversationMode, inboxScrollMode, onSetInboxScrollMode, showInboxRowActions, onToggleShowInboxRowActions }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -184,6 +186,9 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
                 </button>
                 <button class="settings-popover-toggle" onClick=${onToggleUseGmailLabelColors}>
                   <span class="checkbox-glyph">${useGmailLabelColors ? '[x]' : '[ ]'}</span> use gmail label colors
+                </button>
+                <button class="settings-popover-toggle" onClick=${onToggleShowInboxRowActions}>
+                  <span class="checkbox-glyph">${showInboxRowActions ? '[x]' : '[ ]'}</span> show inbox row buttons
                 </button>
                 <button class="settings-popover-toggle" onClick=${onToggleFooterEnabled}>
                   <span class="checkbox-glyph">${footerEnabled ? '[x]' : '[ ]'}</span> append footer to sent messages
