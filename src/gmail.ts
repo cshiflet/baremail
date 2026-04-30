@@ -9,33 +9,51 @@ export function getTotalBytes(): number {
   return totalBytesTransferred;
 }
 
+// Max retries for transient 429 / 5xx responses. Backoff is exponential
+// starting at 500ms (500, 1000, 2000, 4000).
+const FETCH_RETRY_LIMIT = 4;
+
 async function gmailFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const token = await getAccessToken();
   const method = (options.method || 'GET').toUpperCase();
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
+  let lastResponse: Response | null = null;
 
-  if (method === 'GET') {
-    const contentLength = response.headers.get('content-length');
-    if (contentLength) {
-      totalBytesTransferred += parseInt(contentLength, 10);
-    } else {
-      const buf = await response.clone().arrayBuffer();
-      totalBytesTransferred += buf.byteLength;
+  for (let attempt = 0; attempt <= FETCH_RETRY_LIMIT; attempt++) {
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+    lastResponse = response;
+
+    // Count bytes only on the final, kept response.
+    const isRetryable = response.status === 429 || (response.status >= 500 && response.status < 600);
+    if (response.ok || !isRetryable || attempt === FETCH_RETRY_LIMIT) {
+      if (method === 'GET') {
+        const contentLength = response.headers.get('content-length');
+        if (contentLength) {
+          totalBytesTransferred += parseInt(contentLength, 10);
+        } else {
+          const buf = await response.clone().arrayBuffer();
+          totalBytesTransferred += buf.byteLength;
+        }
+      }
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Gmail API error ${response.status}: ${text}`);
+      }
+      return response;
     }
-  }
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Gmail API error ${response.status}: ${text}`);
+    // Drain body so the connection can be reused; ignore any errors.
+    try { await response.text(); } catch { /* ignore */ }
+    const delay = 500 * Math.pow(2, attempt);
+    await new Promise(r => setTimeout(r, delay));
   }
-
-  return response;
+  // Unreachable in practice, but satisfies the type checker.
+  throw new Error(`Gmail API error ${lastResponse?.status ?? 0}: max retries exceeded`);
 }
 
 // ── List messages ──
@@ -85,6 +103,11 @@ async function getMessageMetadata(id: string): Promise<GmailMessage> {
   return parseMessageData(data);
 }
 
+// Concurrent fan-out is bounded so we don't trip Gmail's per-user
+// concurrent-request limit (~10). 6 leaves headroom for other in-flight
+// calls (label refreshes, etc.).
+const BATCH_CONCURRENCY = 6;
+
 export async function batchGetMetadata(
   ids: string[],
   onProgress?: (loaded: number, total: number, messages: GmailMessage[]) => void
@@ -94,18 +117,19 @@ export async function batchGetMetadata(
   const results: (GmailMessage | null)[] = new Array(ids.length).fill(null);
   let loadedCount = 0;
 
-  const promises = ids.map((id, index) =>
-    getMessageMetadata(id).then(msg => {
-      results[index] = msg;
-      loadedCount++;
-      if (onProgress) {
-        const loaded = results.filter((r): r is GmailMessage => r !== null);
-        onProgress(loadedCount, ids.length, loaded);
-      }
-    })
-  );
-
-  await Promise.all(promises);
+  for (let chunkStart = 0; chunkStart < ids.length; chunkStart += BATCH_CONCURRENCY) {
+    const chunk = ids.slice(chunkStart, chunkStart + BATCH_CONCURRENCY);
+    await Promise.all(chunk.map((id, i) =>
+      getMessageMetadata(id).then(msg => {
+        results[chunkStart + i] = msg;
+        loadedCount++;
+        if (onProgress) {
+          const loaded = results.filter((r): r is GmailMessage => r !== null);
+          onProgress(loadedCount, ids.length, loaded);
+        }
+      })
+    ));
+  }
   return results as GmailMessage[];
 }
 
@@ -182,18 +206,19 @@ export async function batchGetThreadMetadata(
   const results: (GmailThread | null)[] = new Array(ids.length).fill(null);
   let loadedCount = 0;
 
-  const promises = ids.map((id, index) =>
-    getThreadMetadata(id).then(thread => {
-      results[index] = thread;
-      loadedCount++;
-      if (onProgress) {
-        const loaded = results.filter((t): t is GmailThread => t !== null);
-        onProgress(loadedCount, ids.length, loaded);
-      }
-    })
-  );
-
-  await Promise.all(promises);
+  for (let chunkStart = 0; chunkStart < ids.length; chunkStart += BATCH_CONCURRENCY) {
+    const chunk = ids.slice(chunkStart, chunkStart + BATCH_CONCURRENCY);
+    await Promise.all(chunk.map((id, i) =>
+      getThreadMetadata(id).then(thread => {
+        results[chunkStart + i] = thread;
+        loadedCount++;
+        if (onProgress) {
+          const loaded = results.filter((t): t is GmailThread => t !== null);
+          onProgress(loadedCount, ids.length, loaded);
+        }
+      })
+    ));
+  }
   return results as GmailThread[];
 }
 
