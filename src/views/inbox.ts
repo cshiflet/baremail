@@ -115,6 +115,7 @@ interface InboxProps {
   onThreadUpdated: (thread: GmailThread) => void;
   onThreadArchived: (id: string) => void;
   onOpenEmail: (email: GmailMessage) => void;
+  onOpenThread: (thread: GmailThread) => void;
   onSetLoading: (loading: boolean) => void;
   onSearchSubmit: () => void;
   onSearchClear: () => void;
@@ -144,6 +145,7 @@ export function InboxView({
   onThreadUpdated,
   onThreadArchived,
   onOpenEmail,
+  onOpenThread,
   onSetLoading,
   onSearchSubmit,
   onSearchClear,
@@ -448,10 +450,7 @@ export function InboxView({
               <div
                 key=${thread.id}
                 class="inbox-row fade-in"
-                onClick=${() => {
-                  const latest = thread.messages[thread.messages.length - 1];
-                  if (latest) onOpenEmail(latest);
-                }}
+                onClick=${() => onOpenThread(thread)}
                 style=${{
                   animationDelay: `${i * 40}ms`,
                   background: selectedIndex === i ? 'var(--bg-highlight)' : undefined,
