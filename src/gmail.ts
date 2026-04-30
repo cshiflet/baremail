@@ -389,22 +389,35 @@ export async function trashMessage(id: string): Promise<void> {
 
 // ── Labels ──
 
+function parseLabel(data: Record<string, unknown>): GmailLabel {
+  const color = data.color as { textColor?: string; backgroundColor?: string } | undefined;
+  return {
+    id: data.id as string,
+    name: data.name as string,
+    type: data.type as string,
+    messagesTotal: data.messagesTotal as number | undefined,
+    messagesUnread: data.messagesUnread as number | undefined,
+    color: color && (color.textColor || color.backgroundColor)
+      ? { textColor: color.textColor, backgroundColor: color.backgroundColor }
+      : undefined,
+  };
+}
+
+// Gmail's labels.list returns slim objects without messagesTotal /
+// messagesUnread. Fetch the per-label counts with labels.get in parallel
+// so every label in the returned list has real counts.
 export async function listLabels(): Promise<GmailLabel[]> {
-  const response = await gmailFetch('/labels?fields=labels(id,name,type,messagesTotal,messagesUnread,color)');
+  const response = await gmailFetch('/labels?fields=labels(id)');
   const data = await response.json();
-  return (data.labels || []).map((l: Record<string, unknown>) => {
-    const color = l.color as { textColor?: string; backgroundColor?: string } | undefined;
-    return {
-      id: l.id as string,
-      name: l.name as string,
-      type: l.type as string,
-      messagesTotal: l.messagesTotal as number | undefined,
-      messagesUnread: l.messagesUnread as number | undefined,
-      color: color && (color.textColor || color.backgroundColor)
-        ? { textColor: color.textColor, backgroundColor: color.backgroundColor }
-        : undefined,
-    };
-  });
+  const ids = ((data.labels || []) as Array<{ id: string }>).map(l => l.id);
+  if (ids.length === 0) return [];
+  const detailed = await Promise.all(ids.map(async id => {
+    const r = await gmailFetch(
+      `/labels/${id}?fields=id,name,type,messagesTotal,messagesUnread,color`
+    );
+    return parseLabel(await r.json());
+  }));
+  return detailed;
 }
 
 // ── Parse helpers ──
