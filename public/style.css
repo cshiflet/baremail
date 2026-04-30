@@ -707,6 +707,12 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 .inbox-subject.unread { color: var(--mid-text); }
 .inbox-subject.read { color: var(--dim-text); }
 
+.inbox-thread-count {
+  margin-left: 6px;
+  color: var(--dim-text);
+  font-size: 11px;
+}
+
 .inbox-date {
   color: var(--dim-text);
   font-size: 11px;
