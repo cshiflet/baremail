@@ -2,6 +2,8 @@ import { getAccessToken } from './auth.js';
 import type { GmailMessage, GmailAttachment, GmailLabel, GmailThread } from './types.js';
 
 const API_BASE = 'https://www.googleapis.com/gmail/v1/users/me';
+const BATCH_URL = 'https://www.googleapis.com/batch/gmail/v1';
+const API_PATH_PREFIX = '/gmail/v1/users/me';
 
 let totalBytesTransferred = 0;
 
@@ -54,6 +56,148 @@ async function gmailFetch(path: string, options: RequestInit = {}): Promise<Resp
   }
   // Unreachable in practice, but satisfies the type checker.
   throw new Error(`Gmail API error ${lastResponse?.status ?? 0}: max retries exceeded`);
+}
+
+// ── Batch ──
+
+export interface BatchSubRequest {
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
+  // Path relative to /gmail/v1/users/me — e.g., '/messages/abc?format=metadata'.
+  path: string;
+  // Optional JSON body for non-GET requests.
+  body?: unknown;
+}
+
+export interface BatchSubResult<T = unknown> {
+  status: number;
+  ok: boolean;
+  body: T | null;
+  rawBody: string;
+}
+
+// Send many Gmail sub-requests as a single multipart/mixed batch. Counts as
+// one concurrent request server-side regardless of the number of sub-requests
+// (Gmail caps batches at 100, recommends ≤50). Outer request is retried on
+// 429/5xx with exponential backoff to match gmailFetch behavior.
+export async function batchGmail<T = unknown>(
+  requests: BatchSubRequest[],
+): Promise<BatchSubResult<T>[]> {
+  if (requests.length === 0) return [];
+  if (requests.length > 50) {
+    console.warn(`[baremail] batch size ${requests.length} exceeds Gmail's recommended max of 50`);
+  }
+
+  const token = await getAccessToken();
+  const boundary = `baremail_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+  const lines: string[] = [];
+  for (let i = 0; i < requests.length; i++) {
+    const req = requests[i];
+    const method = req.method || 'GET';
+    const fullPath = `${API_PATH_PREFIX}${req.path}`;
+    lines.push(`--${boundary}`);
+    lines.push('Content-Type: application/http');
+    lines.push(`Content-ID: <item${i}>`);
+    lines.push('');
+    if (req.body !== undefined) {
+      const bodyStr = JSON.stringify(req.body);
+      lines.push(`${method} ${fullPath}`);
+      lines.push('Content-Type: application/json');
+      lines.push(`Content-Length: ${bodyStr.length}`);
+      lines.push('');
+      lines.push(bodyStr);
+    } else {
+      lines.push(`${method} ${fullPath}`);
+      lines.push('');
+    }
+  }
+  lines.push(`--${boundary}--`);
+  lines.push('');
+  const requestBody = lines.join('\r\n');
+
+  let response: Response | null = null;
+  let responseText = '';
+  for (let attempt = 0; attempt <= FETCH_RETRY_LIMIT; attempt++) {
+    response = await fetch(BATCH_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': `multipart/mixed; boundary=${boundary}`,
+      },
+      body: requestBody,
+    });
+    const isRetryable = response.status === 429 || (response.status >= 500 && response.status < 600);
+    if (response.ok || !isRetryable || attempt === FETCH_RETRY_LIMIT) {
+      responseText = await response.text();
+      break;
+    }
+    try { await response.text(); } catch { /* ignore */ }
+    const delay = 500 * Math.pow(2, attempt);
+    await new Promise(r => setTimeout(r, delay));
+  }
+
+  if (!response || !response.ok) {
+    throw new Error(`Gmail batch error ${response?.status ?? 0}: ${responseText.slice(0, 500)}`);
+  }
+
+  totalBytesTransferred += new Blob([responseText]).size;
+
+  const ctype = response.headers.get('content-type') || '';
+  const boundaryMatch = ctype.match(/boundary=([^\s;]+)/);
+  if (!boundaryMatch) throw new Error('Gmail batch: response missing boundary');
+  const respBoundary = boundaryMatch[1].replace(/^"|"$/g, '');
+
+  return parseBatchResponse<T>(responseText, respBoundary, requests.length);
+}
+
+function parseBatchResponse<T>(body: string, boundary: string, expectedCount: number): BatchSubResult<T>[] {
+  const results: Array<BatchSubResult<T> | null> = new Array(expectedCount).fill(null);
+  const sep = `--${boundary}`;
+  const parts = body.split(sep);
+
+  for (const partRaw of parts) {
+    const part = partRaw.replace(/^\r?\n/, '').replace(/\r?\n$/, '');
+    if (!part || part.startsWith('--')) continue;
+
+    const headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd === -1) continue;
+
+    const partHeaders = part.slice(0, headerEnd);
+    const httpResponse = part.slice(headerEnd + 4);
+
+    const idMatch = partHeaders.match(/Content-ID:\s*<response-item(\d+)>/i);
+    if (!idMatch) continue;
+    const idx = parseInt(idMatch[1], 10);
+
+    const innerHeaderEnd = httpResponse.indexOf('\r\n\r\n');
+    if (innerHeaderEnd === -1) continue;
+    const statusAndHeaders = httpResponse.slice(0, innerHeaderEnd);
+    const innerBody = httpResponse.slice(innerHeaderEnd + 4);
+
+    const firstLine = statusAndHeaders.split('\r\n')[0] || '';
+    const statusMatch = firstLine.match(/^HTTP\/[\d.]+\s+(\d+)/);
+    const status = statusMatch ? parseInt(statusMatch[1], 10) : 0;
+
+    let parsed: T | null = null;
+    try {
+      const trimmed = innerBody.trim();
+      if (trimmed) parsed = JSON.parse(trimmed) as T;
+    } catch { /* keep null on non-JSON / parse failure */ }
+
+    results[idx] = {
+      status,
+      ok: status >= 200 && status < 300,
+      body: parsed,
+      rawBody: innerBody,
+    };
+  }
+
+  for (let i = 0; i < expectedCount; i++) {
+    if (!results[i]) {
+      results[i] = { status: 0, ok: false, body: null, rawBody: 'missing batch sub-response' };
+    }
+  }
+  return results as BatchSubResult<T>[];
 }
 
 // ── List messages ──
@@ -180,15 +324,14 @@ export async function listThreads(
   };
 }
 
-async function getThreadMetadata(id: string): Promise<GmailThread> {
-  // Gmail's threads.get returns the thread object with all messages. With
-  // format=metadata we get headers per message but no bodies — enough for
-  // inbox display where we need senders/subjects/dates/labels.
-  const fields = 'id,historyId,messages(id,threadId,labelIds,payload(headers),internalDate,snippet)';
-  const response = await gmailFetch(
-    `/threads/${id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&fields=${encodeURIComponent(fields)}`
-  );
-  const data = await response.json();
+// Sub-request path used by both single and batch fetchers below — keeps the
+// fields/format alignment in one place.
+const THREAD_METADATA_FIELDS = 'id,historyId,messages(id,threadId,labelIds,payload(headers),internalDate,snippet)';
+function threadMetadataPath(id: string): string {
+  return `/threads/${id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&fields=${encodeURIComponent(THREAD_METADATA_FIELDS)}`;
+}
+
+function parseThreadFromData(data: Record<string, unknown>): GmailThread {
   const messagesRaw = (data.messages || []) as Array<Record<string, unknown>>;
   return {
     id: data.id as string,
@@ -196,6 +339,15 @@ async function getThreadMetadata(id: string): Promise<GmailThread> {
     messages: messagesRaw.map(m => parseMessageData(m)),
   };
 }
+
+async function getThreadMetadata(id: string): Promise<GmailThread> {
+  const response = await gmailFetch(threadMetadataPath(id));
+  return parseThreadFromData(await response.json());
+}
+
+// Batch up to MAX_PER_BATCH thread.get calls into a single multipart request.
+// Gmail allows 100 per batch but recommends ≤50; we use 25 (one inbox page).
+const MAX_PER_BATCH = 25;
 
 export async function batchGetThreadMetadata(
   ids: string[],
@@ -206,20 +358,26 @@ export async function batchGetThreadMetadata(
   const results: (GmailThread | null)[] = new Array(ids.length).fill(null);
   let loadedCount = 0;
 
-  for (let chunkStart = 0; chunkStart < ids.length; chunkStart += BATCH_CONCURRENCY) {
-    const chunk = ids.slice(chunkStart, chunkStart + BATCH_CONCURRENCY);
-    await Promise.all(chunk.map((id, i) =>
-      getThreadMetadata(id).then(thread => {
-        results[chunkStart + i] = thread;
-        loadedCount++;
-        if (onProgress) {
-          const loaded = results.filter((t): t is GmailThread => t !== null);
-          onProgress(loadedCount, ids.length, loaded);
-        }
-      })
-    ));
+  for (let chunkStart = 0; chunkStart < ids.length; chunkStart += MAX_PER_BATCH) {
+    const chunk = ids.slice(chunkStart, chunkStart + MAX_PER_BATCH);
+    const subResults = await batchGmail<Record<string, unknown>>(
+      chunk.map(id => ({ method: 'GET' as const, path: threadMetadataPath(id) })),
+    );
+    for (let i = 0; i < subResults.length; i++) {
+      const r = subResults[i];
+      if (r.ok && r.body) {
+        results[chunkStart + i] = parseThreadFromData(r.body);
+      } else {
+        console.warn(`[baremail] batch thread fetch failed for ${chunk[i]}: ${r.status} ${r.rawBody.slice(0, 200)}`);
+      }
+      loadedCount++;
+    }
+    if (onProgress) {
+      const loaded = results.filter((t): t is GmailThread => t !== null);
+      onProgress(loadedCount, ids.length, loaded);
+    }
   }
-  return results as GmailThread[];
+  return results.filter((t): t is GmailThread => t !== null);
 }
 
 export async function getThread(id: string): Promise<GmailThread> {
