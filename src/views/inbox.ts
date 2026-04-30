@@ -515,12 +515,9 @@ export function InboxView({
                     : html`<span class="inbox-row-chevron-spacer" />`
                   }
                   <span class="inbox-indicator">
-                    ${display.isUnread
-                      ? html`<span class="unread">●</span>`
-                      : display.isStarred
-                        ? html`<span class="starred">★</span>`
-                        : html`<span class="read">·</span>`
-                    }
+                    ${display.isUnread && html`<span class="unread">●</span>`}
+                    ${display.isStarred && html`<span class="starred">★</span>`}
+                    ${!display.isUnread && !display.isStarred && html`<span class="read">·</span>`}
                   </span>
 
                   <div class="inbox-content">
@@ -576,12 +573,9 @@ export function InboxView({
                   >
                     <span class="inbox-row-chevron-spacer" />
                     <span class="inbox-indicator">
-                      ${message.isUnread
-                        ? html`<span class="unread">●</span>`
-                        : message.isStarred
-                          ? html`<span class="starred">★</span>`
-                          : html`<span class="read">·</span>`
-                      }
+                      ${message.isUnread && html`<span class="unread">●</span>`}
+                      ${message.isStarred && html`<span class="starred">★</span>`}
+                      ${!message.isUnread && !message.isStarred && html`<span class="read">·</span>`}
                     </span>
                     <div class="inbox-content">
                       <span class="inbox-from ${message.isUnread ? 'unread' : 'read'}">
@@ -610,12 +604,9 @@ export function InboxView({
             }}
           >
             <span class="inbox-indicator">
-              ${email.isUnread
-                ? html`<span class="unread">●</span>`
-                : email.isStarred
-                  ? html`<span class="starred">★</span>`
-                  : html`<span class="read">·</span>`
-              }
+              ${email.isUnread && html`<span class="unread">●</span>`}
+              ${email.isStarred && html`<span class="starred">★</span>`}
+              ${!email.isUnread && !email.isStarred && html`<span class="read">·</span>`}
             </span>
 
             <div class="inbox-content">

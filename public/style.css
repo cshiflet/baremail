@@ -656,7 +656,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 /* ── Inbox ── */
 .inbox-row {
   display: grid;
-  grid-template-columns: 20px 1fr 90px auto;
+  grid-template-columns: 28px 1fr 90px auto;
   gap: 8px;
   align-items: baseline;
   padding: 10px 8px;
@@ -670,7 +670,7 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
    via negative margin so they read as a single cluster. */
 .inbox-row.inbox-row-thread,
 .inbox-row.inbox-row-message {
-  grid-template-columns: 12px 20px 1fr 90px auto;
+  grid-template-columns: 12px 28px 1fr 90px auto;
 }
 
 .inbox-row-thread > .inbox-indicator,
@@ -729,8 +729,11 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 
 .inbox-indicator {
   font-size: 11px;
-  text-align: center;
   line-height: 20px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 1px;
 }
 
 .inbox-indicator .unread {
@@ -2027,14 +2030,14 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .inbox-row {
-    grid-template-columns: 16px 1fr 70px;
+    grid-template-columns: 22px 1fr 70px;
     gap: 4px;
     padding: 8px 4px;
   }
 
   .inbox-row.inbox-row-thread,
   .inbox-row.inbox-row-message {
-    grid-template-columns: 10px 16px 1fr 70px;
+    grid-template-columns: 10px 22px 1fr 70px;
   }
 
   .inbox-actions { display: none; }
