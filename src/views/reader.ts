@@ -1,8 +1,8 @@
 import { h } from 'preact';
-import { useState, useEffect, useMemo } from 'preact/hooks';
+import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import htm from 'htm';
 import DOMPurify from 'dompurify';
-import { Loading, formatFullDate, formatBytes } from '../components/common.js';
+import { Loading, formatFullDate, formatBytes, LabelChips } from '../components/common.js';
 import {
   getMessage,
   archiveMessage,
@@ -11,10 +11,11 @@ import {
   trashMessage,
   markAsRead,
   markAsUnread,
+  modifyMessage,
   getAttachment,
 } from '../gmail.js';
 import { cacheMessage, getCachedMessage } from '../cache.js';
-import type { GmailMessage, ComposeData } from '../types.js';
+import type { GmailMessage, ComposeData, GmailLabel } from '../types.js';
 
 const html = htm.bind(h);
 
@@ -105,26 +106,44 @@ interface ReaderProps {
   onForward: (data: ComposeData) => void;
   onEmailUpdated: (email: GmailMessage) => void;
   onArchived: (id: string) => void;
+  labels: GmailLabel[];
+  useGmailLabelColors: boolean;
 }
 
-export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, onArchived }: ReaderProps) {
+export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, onArchived, labels, useGmailLabelColors }: ReaderProps) {
   const [fullEmail, setFullEmail] = useState<GmailMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [showHtml, setShowHtml] = useState(false);
   const [linkMode, setLinkMode] = useState<LinkMode>('labeled');
+  const [showLabels, setShowLabels] = useState(false);
+  const labelsPopoverRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
-      if (e.key === 'l') {
+      if (e.key === 'h') {
         e.preventDefault();
         setLinkMode(m => m === 'labeled' ? 'url' : 'labeled');
+      } else if (e.key === 'l') {
+        e.preventDefault();
+        setShowLabels(v => !v);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  useEffect(() => {
+    if (!showLabels) return;
+    const close = (e: MouseEvent) => {
+      if (labelsPopoverRef.current && !labelsPopoverRef.current.contains(e.target as Node)) {
+        setShowLabels(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showLabels]);
 
   useEffect(() => {
     let cancelled = false;
@@ -214,6 +233,22 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
     }
   };
 
+  const handleToggleLabel = async (label: GmailLabel) => {
+    const currentIds = email.labelIds || [];
+    const isApplied = currentIds.includes(label.id);
+    const newLabelIds = isApplied
+      ? currentIds.filter(id => id !== label.id)
+      : [...currentIds, label.id];
+    if (fullEmail) setFullEmail({ ...fullEmail, labelIds: newLabelIds });
+    onEmailUpdated({ ...email, labelIds: newLabelIds });
+    try {
+      if (isApplied) await modifyMessage(email.id, undefined, [label.id]);
+      else await modifyMessage(email.id, [label.id], undefined);
+    } catch (err) {
+      console.error('Toggle label failed:', err);
+    }
+  };
+
   const handleReply = () => {
     if (!fullEmail) return;
     onReply({
@@ -279,6 +314,29 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
           <button class="btn btn-secondary btn-sm" onClick=${handleToggleUnread}>
             ${email.isUnread ? 'mark read' : 'mark unread'}
           </button>
+          <span class="labels-control" ref=${labelsPopoverRef}>
+            <button class="btn btn-secondary btn-sm" onClick=${() => setShowLabels(v => !v)}>labels</button>
+            ${showLabels && html`
+              <div class="labels-popover">
+                ${labels.filter(l => l.type === 'user').sort((a, b) => a.name.localeCompare(b.name)).length === 0
+                  ? html`<div class="labels-popover-empty">no user labels</div>`
+                  : labels.filter(l => l.type === 'user').sort((a, b) => a.name.localeCompare(b.name)).map(label => {
+                    const isApplied = email.labelIds?.includes(label.id) || false;
+                    return html`
+                      <button
+                        key=${label.id}
+                        class="labels-popover-option ${isApplied ? 'active' : ''}"
+                        onClick=${() => handleToggleLabel(label)}
+                      >
+                        <span class="checkbox-glyph">${isApplied ? '[x]' : '[ ]'}</span>
+                        <span class="labels-popover-name">${label.name}</span>
+                      </button>
+                    `;
+                  })
+                }
+              </div>
+            `}
+          </span>
           <button class="btn btn-secondary btn-sm" onClick=${handleStar}>
             ${email.isStarred ? '★ unstar' : '☆ star'}
           </button>
@@ -303,6 +361,12 @@ export function ReaderView({ email, onBack, onReply, onForward, onEmailUpdated, 
           `}
           <span class="reader-meta-label">date</span>
           <span class="reader-meta-value">${formatFullDate(displayEmail.internalDate)}</span>
+          ${displayEmail.labelIds && labels.some(l => l.type === 'user' && displayEmail.labelIds.includes(l.id)) && html`
+            <span class="reader-meta-label">labels</span>
+            <span class="reader-meta-value">
+              <${LabelChips} messageLabelIds=${displayEmail.labelIds} allLabels=${labels} useColor=${useGmailLabelColors} />
+            </span>
+          `}
         </div>
       </div>
 

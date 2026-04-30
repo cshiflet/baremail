@@ -2,17 +2,18 @@ import { h, render } from 'preact';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import htm from 'htm';
 import { initAuth, isAuthenticated, handleOAuthCallback, logout, getUserEmail } from './auth.js';
-import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread } from './gmail.js';
+import { getTotalBytes, archiveMessage, starMessage, unstarMessage, markAsRead, markAsUnread, listLabels } from './gmail.js';
 import { getPref, setPref, getOutboxCount } from './cache.js';
 import { Header, WIDTH_PRESETS, DEFAULT_WIDTH_ID } from './components/header.js';
 import { Nav } from './components/nav.js';
 import { Footer } from './components/footer.js';
+import { Sidebar } from './components/sidebar.js';
 import { InboxZeroBear } from './components/bear.js';
 import { LoginView } from './views/login.js';
 import { InboxView } from './views/inbox.js';
 import { ReaderView } from './views/reader.js';
 import { ComposeView } from './views/compose.js';
-import type { View, GmailMessage, ComposeData, ConnectionStatus } from './types.js';
+import type { View, GmailMessage, ComposeData, ConnectionStatus, GmailLabel } from './types.js';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -36,6 +37,11 @@ function App() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('online');
   const [outboxCount, setOutboxCount] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [labels, setLabels] = useState<GmailLabel[]>([]);
+  const [showCategoryTabs, setShowCategoryTabs] = useState<boolean>(false);
+  const [useGmailLabelColors, setUseGmailLabelColors] = useState<boolean>(false);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [headerCollapsed, setHeaderCollapsed] = useState<boolean>(false);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -70,6 +76,18 @@ function App() {
 
         const count = await getOutboxCount();
         setOutboxCount(count);
+
+        const cachedLabels = await getPref<GmailLabel[]>('labels', []);
+        if (cachedLabels.length > 0) setLabels(cachedLabels);
+        if (isAuthenticated()) {
+          listLabels()
+            .then(fresh => { setLabels(fresh); setPref('labels', fresh); })
+            .catch(err => console.error('Failed to refresh labels:', err));
+        }
+
+        setShowCategoryTabs(await getPref<boolean>('showCategoryTabs', false));
+        setUseGmailLabelColors(await getPref<boolean>('useGmailLabelColors', false));
+        setHeaderCollapsed(await getPref<boolean>('headerCollapsed', false));
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -109,6 +127,25 @@ function App() {
     document.documentElement.setAttribute('data-theme', next);
     await setPref('theme', next);
   }, [theme]);
+
+  // ── Label settings ──
+  const toggleShowCategoryTabs = useCallback(async () => {
+    const next = !showCategoryTabs;
+    setShowCategoryTabs(next);
+    await setPref('showCategoryTabs', next);
+  }, [showCategoryTabs]);
+
+  const toggleUseGmailLabelColors = useCallback(async () => {
+    const next = !useGmailLabelColors;
+    setUseGmailLabelColors(next);
+    await setPref('useGmailLabelColors', next);
+  }, [useGmailLabelColors]);
+
+  const toggleHeaderCollapsed = useCallback(async () => {
+    const next = !headerCollapsed;
+    setHeaderCollapsed(next);
+    await setPref('headerCollapsed', next);
+  }, [headerCollapsed]);
 
   // ── Container width ──
   const setContainerWidth = useCallback(async (id: string) => {
@@ -415,6 +452,23 @@ function App() {
         </div>
       `}
 
+      <div class="layout">
+        ${labels.some(l => l.type === 'user') && html`
+          <button
+            class="sidebar-toggle"
+            onClick=${() => setSidebarOpen(o => !o)}
+            title="toggle labels"
+          >☰</button>
+          <${Sidebar}
+            labels=${labels}
+            activeLabel=${activeLabel}
+            useGmailLabelColors=${useGmailLabelColors}
+            onLabelClick=${handleTabClick}
+            isOpen=${sidebarOpen}
+            onClose=${() => setSidebarOpen(false)}
+          />
+          <div class="sidebar-divider" aria-hidden="true">${'|\n'.repeat(200).slice(0, -1)}</div>
+        `}
       <div class="app-container ${mounted ? 'mounted' : ''}">
         <div class="sticky-top">
           <${Header}
@@ -430,6 +484,12 @@ function App() {
             containerWidth=${containerWidth}
             onSetContainerWidth=${setContainerWidth}
             onCycleContainerWidth=${cycleContainerWidth}
+            showCategoryTabs=${showCategoryTabs}
+            onToggleShowCategoryTabs=${toggleShowCategoryTabs}
+            useGmailLabelColors=${useGmailLabelColors}
+            onToggleUseGmailLabelColors=${toggleUseGmailLabelColors}
+            headerCollapsed=${headerCollapsed}
+            onToggleHeaderCollapsed=${toggleHeaderCollapsed}
           />
 
           <${Nav}
@@ -443,6 +503,8 @@ function App() {
             onSearchSubmit=${handleSearchSubmit}
             onSearchClear=${handleSearchClear}
             onCompose=${startCompose}
+            labels=${labels}
+            showCategoryTabs=${showCategoryTabs}
           />
         </div>
 
@@ -465,6 +527,8 @@ function App() {
             onSearchClear=${handleSearchClear}
             selectedIndex=${selectedIndex}
             inboxZeroBear=${html`<${InboxZeroBear} />`}
+            labels=${labels}
+            useGmailLabelColors=${useGmailLabelColors}
           />
         `}
 
@@ -476,6 +540,8 @@ function App() {
             onForward=${handleForward}
             onEmailUpdated=${handleEmailUpdated}
             onArchived=${handleArchived}
+            labels=${labels}
+            useGmailLabelColors=${useGmailLabelColors}
           />
         `}
 
@@ -489,6 +555,7 @@ function App() {
         `}
 
         <${Footer} view=${view} hasActiveSearch=${!!(localSearchQuery || apiSearchQuery)} />
+      </div>
       </div>
     </div>
   `;
