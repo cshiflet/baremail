@@ -367,6 +367,10 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   border-bottom: 1px solid var(--border);
 }
 
+.header.collapsed {
+  padding: 6px 0 6px;
+}
+
 .header-brand { text-align: center; }
 
 .header-bear {
@@ -517,6 +521,19 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
   line-height: 1;
 }
 .nav-search-clear:hover { color: var(--amber); }
+
+.nav-collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--dim-text);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 10px;
+  transition: color 0.15s;
+}
+
+.nav-collapse-btn:hover { color: var(--amber); }
 
 /* ── Search Results ── */
 .search-results-header {

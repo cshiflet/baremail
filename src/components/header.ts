@@ -38,9 +38,10 @@ interface HeaderProps {
   onToggleShowCategoryTabs: () => void;
   useGmailLabelColors: boolean;
   onToggleUseGmailLabelColors: () => void;
+  headerCollapsed: boolean;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -79,14 +80,16 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
     : `${unreadCount} unread`;
 
   return html`
-    <header class="header">
-      <div class="header-brand">
-        <div class="header-bear">ʕ·ᴥ·ʔ</div>
-        <div class="header-wordmark">
-          BAREMAIL
+    <header class="header ${headerCollapsed ? 'collapsed' : ''}">
+      ${!headerCollapsed && html`
+        <div class="header-brand">
+          <div class="header-bear">ʕ·ᴥ·ʔ</div>
+          <div class="header-wordmark">
+            BAREMAIL
+          </div>
+          <div class="header-tagline">── email's bare necessities ──</div>
         </div>
-        <div class="header-tagline">── email's bare necessities ──</div>
-      </div>
+      `}
       <div class="header-status">
         <span class="header-status-left" ref=${popoverRef}>
           <button class="header-status-btn" onClick=${() => setShowAccount(!showAccount)}>

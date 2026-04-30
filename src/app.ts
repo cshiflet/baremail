@@ -41,6 +41,7 @@ function App() {
   const [showCategoryTabs, setShowCategoryTabs] = useState<boolean>(false);
   const [useGmailLabelColors, setUseGmailLabelColors] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [headerCollapsed, setHeaderCollapsed] = useState<boolean>(false);
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
 
@@ -86,6 +87,7 @@ function App() {
 
         setShowCategoryTabs(await getPref<boolean>('showCategoryTabs', false));
         setUseGmailLabelColors(await getPref<boolean>('useGmailLabelColors', false));
+        setHeaderCollapsed(await getPref<boolean>('headerCollapsed', false));
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -138,6 +140,12 @@ function App() {
     setUseGmailLabelColors(next);
     await setPref('useGmailLabelColors', next);
   }, [useGmailLabelColors]);
+
+  const toggleHeaderCollapsed = useCallback(async () => {
+    const next = !headerCollapsed;
+    setHeaderCollapsed(next);
+    await setPref('headerCollapsed', next);
+  }, [headerCollapsed]);
 
   // ── Container width ──
   const setContainerWidth = useCallback(async (id: string) => {
@@ -480,6 +488,7 @@ function App() {
             onToggleShowCategoryTabs=${toggleShowCategoryTabs}
             useGmailLabelColors=${useGmailLabelColors}
             onToggleUseGmailLabelColors=${toggleUseGmailLabelColors}
+            headerCollapsed=${headerCollapsed}
           />
 
           <${Nav}
@@ -495,6 +504,8 @@ function App() {
             onCompose=${startCompose}
             labels=${labels}
             showCategoryTabs=${showCategoryTabs}
+            headerCollapsed=${headerCollapsed}
+            onToggleHeaderCollapsed=${toggleHeaderCollapsed}
           />
         </div>
 

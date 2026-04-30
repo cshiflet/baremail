@@ -33,9 +33,11 @@ interface NavProps {
   onCompose: () => void;
   labels: GmailLabel[];
   showCategoryTabs: boolean;
+  headerCollapsed: boolean;
+  onToggleHeaderCollapsed: () => void;
 }
 
-export function Nav({ activeLabel, view, tabCounts, searchQuery, apiSearchQuery, onTabClick, onSearchInput, onSearchSubmit, onSearchClear, onCompose, labels, showCategoryTabs }: NavProps) {
+export function Nav({ activeLabel, view, tabCounts, searchQuery, apiSearchQuery, onTabClick, onSearchInput, onSearchSubmit, onSearchClear, onCompose, labels, showCategoryTabs, headerCollapsed, onToggleHeaderCollapsed }: NavProps) {
   const countLabel = (id: string) => {
     const count = tabCounts[id];
     return count ? ` (${count})` : '';
@@ -81,6 +83,11 @@ export function Nav({ activeLabel, view, tabCounts, searchQuery, apiSearchQuery,
         </button>
       `)}
       <div class="nav-spacer" />
+      <button
+        class="nav-collapse-btn"
+        onClick=${onToggleHeaderCollapsed}
+        title=${headerCollapsed ? 'expand header' : 'collapse header'}
+      >${headerCollapsed ? '▾' : '▴'}</button>
       ${view === 'inbox' && html`
         <div class="nav-search ${apiSearchQuery ? 'active-search' : ''}">
           <span class="nav-search-icon">⌕</span>
