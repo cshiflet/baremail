@@ -39,9 +39,10 @@ interface HeaderProps {
   useGmailLabelColors: boolean;
   onToggleUseGmailLabelColors: () => void;
   headerCollapsed: boolean;
+  onToggleHeaderCollapsed: () => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -116,6 +117,12 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
             </div>
           `}
         </span>
+        ${headerCollapsed && html`
+          <span class="header-status-brand-compact">
+            <span class="header-bear">ʕ·ᴥ·ʔ</span>
+            <span class="header-wordmark">BAREMAIL</span>
+          </span>
+        `}
         <span>
           <span class="width-control" ref=${widthPopoverRef}>
             <button class="width-cycle-btn" onClick=${onCycleContainerWidth} title="cycle width">
@@ -144,6 +151,11 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
             ${theme === 'dark' ? '◑ light' : '◐ dark'}
           </button>
           ${' · '}↓ ${formatBytes(totalBytes)} api
+          <button
+            class="header-collapse-btn"
+            onClick=${onToggleHeaderCollapsed}
+            title=${headerCollapsed ? 'expand header' : 'collapse header'}
+          >${headerCollapsed ? '▾' : '▴'}</button>
         </span>
       </div>
     </header>

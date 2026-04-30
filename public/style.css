@@ -522,18 +522,34 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 }
 .nav-search-clear:hover { color: var(--amber); }
 
-.nav-collapse-btn {
+.header-collapse-btn {
   background: transparent;
   border: none;
   color: var(--dim-text);
   font-family: var(--font);
   font-size: 12px;
   cursor: pointer;
-  padding: 6px 10px;
+  padding: 0 0 0 6px;
   transition: color 0.15s;
 }
 
-.nav-collapse-btn:hover { color: var(--amber); }
+.header-collapse-btn:hover { color: var(--amber); }
+
+.header-status-brand-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-status-brand-compact .header-bear {
+  font-size: 14px;
+}
+
+.header-status-brand-compact .header-wordmark {
+  font-size: 14px;
+  letter-spacing: 4px;
+  margin: 0;
+}
 
 /* ── Search Results ── */
 .search-results-header {

@@ -489,6 +489,7 @@ function App() {
             useGmailLabelColors=${useGmailLabelColors}
             onToggleUseGmailLabelColors=${toggleUseGmailLabelColors}
             headerCollapsed=${headerCollapsed}
+            onToggleHeaderCollapsed=${toggleHeaderCollapsed}
           />
 
           <${Nav}
@@ -504,8 +505,6 @@ function App() {
             onCompose=${startCompose}
             labels=${labels}
             showCategoryTabs=${showCategoryTabs}
-            headerCollapsed=${headerCollapsed}
-            onToggleHeaderCollapsed=${toggleHeaderCollapsed}
           />
         </div>
 
