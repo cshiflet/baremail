@@ -50,9 +50,11 @@ interface HeaderProps {
   onSetInboxLabelMode: (mode: 'hidden' | 'hover' | 'always') => void;
   conversationMode: boolean;
   onToggleConversationMode: () => void;
+  inboxScrollMode: 'manual' | 'auto';
+  onSetInboxScrollMode: (mode: 'manual' | 'auto') => void;
 }
 
-export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar, inboxLabelMode, onSetInboxLabelMode, conversationMode, onToggleConversationMode }: HeaderProps) {
+export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes, theme, onToggleTheme, userEmail, onLogout, onRefresh, containerWidth, onSetContainerWidth, onCycleContainerWidth, showCategoryTabs, onToggleShowCategoryTabs, useGmailLabelColors, onToggleUseGmailLabelColors, headerCollapsed, onToggleHeaderCollapsed, footerEnabled, onToggleFooterEnabled, footerText, onSetFooterText, showSidebar, onToggleShowSidebar, inboxLabelMode, onSetInboxLabelMode, conversationMode, onToggleConversationMode, inboxScrollMode, onSetInboxScrollMode }: HeaderProps) {
   const [showAccount, setShowAccount] = useState(false);
   const [showWidth, setShowWidth] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -206,6 +208,21 @@ export function Header({ connectionStatus, unreadCount, totalEmails, totalBytes,
                       >
                         <span class="radio-glyph">${inboxLabelMode === mode ? '(•)' : '( )'}</span>
                         ${mode === 'hover' ? 'on hover' : mode}
+                      </button>
+                    `)}
+                  </div>
+                </div>
+                <div class="settings-popover-section">
+                  <div class="settings-popover-section-label">load more messages</div>
+                  <div class="settings-popover-radios">
+                    ${(['manual', 'auto'] as const).map(mode => html`
+                      <button
+                        key=${mode}
+                        class="settings-popover-radio ${inboxScrollMode === mode ? 'active' : ''}"
+                        onClick=${() => onSetInboxScrollMode(mode)}
+                      >
+                        <span class="radio-glyph">${inboxScrollMode === mode ? '(•)' : '( )'}</span>
+                        ${mode === 'manual' ? 'on button click' : 'when scrolled to end'}
                       </button>
                     `)}
                   </div>

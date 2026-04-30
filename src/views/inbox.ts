@@ -126,6 +126,7 @@ interface InboxProps {
   inboxLabelMode: 'hidden' | 'hover' | 'always';
   conversationMode: boolean;
   userEmail: string | null;
+  inboxScrollMode: 'manual' | 'auto';
 }
 
 export function InboxView({
@@ -156,9 +157,11 @@ export function InboxView({
   inboxLabelMode,
   conversationMode,
   userEmail,
+  inboxScrollMode,
 }: InboxProps) {
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const isLocalSearch = !!localSearchQuery && !apiSearchQuery;
   const isApiSearch = !!apiSearchQuery;
@@ -278,6 +281,26 @@ export function InboxView({
     lastRefreshRef.current = refreshTrigger;
     fetchInbox();
   }, [refreshTrigger]);
+
+  // In auto-scroll mode, watch a sentinel near the bottom of the list and
+  // trigger the next page when it scrolls into view (or within 200px of it).
+  // The effect re-runs when nextPageToken or loading change so each pass uses
+  // the current values; the observer disconnects on cleanup.
+  useEffect(() => {
+    if (inboxScrollMode !== 'auto') return;
+    if (!nextPageToken) return;
+    if (loading || error) return;
+    if (isLocalSearch || isApiSearch) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) {
+        fetchInbox(nextPageToken);
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [inboxScrollMode, nextPageToken, loading, error, isLocalSearch, isApiSearch]);
 
   // Per-message handlers (used in messages mode)
   const handleArchiveEmail = async (e: Event, email: GmailMessage) => {
@@ -564,17 +587,37 @@ export function InboxView({
         `)
       }
 
-      ${!isLocalSearch && !isApiSearch && (nextPageToken || loading || error) && html`
-        <div class="inbox-load-more">
-          <button
-            class="btn btn-secondary"
-            onClick=${() => { setError(null); handleLoadMore(); }}
-            disabled=${loading}
-          >
-            ${loading ? 'loading...' : error ? 'retry ↻' : 'load more ↓ (~4KB)'}
-          </button>
-        </div>
-      `}
+      ${!isLocalSearch && !isApiSearch && (nextPageToken || loading || error) && (
+        inboxScrollMode === 'auto'
+          ? html`
+            ${nextPageToken && !loading && !error && html`
+              <div ref=${sentinelRef} class="inbox-scroll-sentinel" />
+            `}
+            <div class="inbox-load-more">
+              ${loading
+                ? html`<span class="inbox-load-status">loading more...</span>`
+                : error
+                  ? html`
+                    <button class="btn btn-secondary" onClick=${() => { setError(null); handleLoadMore(); }}>
+                      retry ↻
+                    </button>
+                  `
+                  : null
+              }
+            </div>
+          `
+          : html`
+            <div class="inbox-load-more">
+              <button
+                class="btn btn-secondary"
+                onClick=${() => { setError(null); handleLoadMore(); }}
+                disabled=${loading}
+              >
+                ${loading ? 'loading...' : error ? 'retry ↻' : 'load more ↓ (~4KB)'}
+              </button>
+            </div>
+          `
+      )}
 
       ${!isLocalSearch && !isApiSearch && !nextPageToken && !loading && !error && itemCount > 0 && html`
         <div class="inbox-end fade-in">── end ──</div>

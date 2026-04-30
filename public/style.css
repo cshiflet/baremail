@@ -733,6 +733,17 @@ button:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
 
 .inbox-row:hover .inbox-actions { opacity: 1; }
 
+.inbox-scroll-sentinel {
+  height: 1px;
+  width: 100%;
+}
+
+.inbox-load-status {
+  color: var(--dim-text);
+  font-size: 11px;
+  font-style: italic;
+}
+
 .inbox-load-more {
   text-align: center;
   padding: 12px 0;
